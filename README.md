@@ -5,21 +5,33 @@
 <!-- omit in toc -->
 # coroboros/ci
 
-**Reusable GitHub Actions workflows and composite actions.**
+**Coroboros-internal GitHub Actions workflows + composite actions.**
 
-npm package CI, OIDC + NPM_TOKEN publish, commit-message lint, gitleaks scan. Drop-in for any GitHub repository. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
+npm-package CI, OIDC + NPM_TOKEN publish, commit-message lint, gitleaks scan. Consumed by every `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v1`. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
 
-[![release](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&color=000000)](https://github.com/coroboros/ci/releases)
-[![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/ci.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-MIT-000000?style=flat-square)](https://opensource.org/licenses/MIT)
-[![stars](https://img.shields.io/github/stars/coroboros/ci?style=flat-square&label=stars&color=000000)](https://github.com/coroboros/ci)
 [![coroboros.com](https://img.shields.io/badge/coroboros.com-000000?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48cGF0aCBkPSJNMiAxMmgyME0xMiAyYTE1LjMgMTUuMyAwIDAgMSA0IDEwIDE1LjMgMTUuMyAwIDAgMS00IDEwIDE1LjMgMTUuMyAwIDAgMS00LTEwIDE1LjMgMTUuMyAwIDAgMSA0LTEweiIvPjwvc3ZnPg==)](https://coroboros.com)
 
 </div>
 
+## Visibility
+
+`coroboros/ci` is **private**, with Actions access toggled to *"Accessible from repositories owned by 'coroboros'"*. The encoded conventions — step names, stage ordering, security posture, release flow — are Coroboros-specific. This is internal infrastructure, not a generic library.
+
+- Caller repos inside the `coroboros` org (public or private): reference the reusable workflows normally.
+- Caller repos outside the org (forks of public `@coroboros/*` packages, third-party): no access. Mainline CI runs fine; PRs from forks lose CI coverage until the change moves into an internal branch.
+
+### Fork PR handling
+
+Three options, in order of effort:
+
+1. **Accept**. Maintainers reproduce the PR locally or pull it into an internal branch to run CI. Suitable for ~5 external PRs per month.
+2. **Inline-critical, reusable-heavy**. Duplicate `lint` and `typecheck` as inline steps in the public package's own `.github/workflows/` so fork PRs get fast feedback. Heavy checks (`pack-check`, `secrets-scan`, release) stay reusable and run only on the internal mainline.
+3. **`pull_request_target` + label-gating**. Label the fork PR `safe-to-test`; a workflow triggered by the label runs CI in the base-repo context, which has access to the private reusables. Requires careful checkout — never check out the PR head blindly, or the fork can RCE the runner.
+
 ## Requirements
 
-- A GitHub repository with Actions enabled.
+- Caller repo lives in the `coroboros` GitHub organization.
+- Caller repo has Actions enabled.
 - Per-repo `package.json` with `packageManager: "pnpm@..."` and `scripts.lint` / `typecheck` / `test` / `build` — defaults assume pnpm.
 - For OIDC publish: an npm Trusted Publisher entry pointing at the caller's `release.yml`.
 - For the default auto-version flow: caller grants `contents: write` and `id-token: write` on `release.yml` so CI can commit the bump back to `main` and emit provenance.

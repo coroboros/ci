@@ -1,6 +1,6 @@
 # coroboros/ci
 
-Reusable GitHub Actions workflows + composite actions for the Coroboros stack. Public repo. No npm publish — the workflows themselves are the artifact. The 1.x line covers `@coroboros/*` npm-package CI. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves per `../MIGRATION_GITLAB_CI_TO_GITHUB_ACTIONS.md`.
+Reusable GitHub Actions workflows + composite actions for the Coroboros stack. Private repo, org-internal access (Actions setting: "Accessible from repositories owned by 'coroboros'"). No npm publish — the workflows themselves are the artifact. The 1.x line covers `@coroboros/*` npm-package CI. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves per `../MIGRATION_GITLAB_CI_TO_GITHUB_ACTIONS.md`.
 
 ## Canonical rules
 
@@ -36,6 +36,7 @@ Global rules (`~/.claude/rules/*`) inherit automatically — tech-standards, wri
 ## Public API contract
 
 - `coroboros/ci/.github/workflows/<name>.yml@v1` resolves the floating major. Consumers pin `@v1` (or `@1.2.3` for immutable).
+- **Visibility** — repo is private, with Actions access set to *"Accessible from repositories owned by 'coroboros'"*. Caller repos must be inside the `coroboros` org. Forks outside the org cannot reach the reusable workflows; see README § Fork PR handling.
 - Each workflow's inputs / secrets / outputs are documented in `README.md`.
 - Breaking changes cut a new floating major (`v2`); the `v1` alias stops moving.
 
