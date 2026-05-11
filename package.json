@@ -1,9 +1,9 @@
 {
   "name": "@coroboros/ci",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Reusable GitHub Actions workflows and composite actions. npm package CI, OIDC + NPM_TOKEN publish, auto-version release flow, commit-message lint, gitleaks scan.",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.md",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=22"
