@@ -5,9 +5,9 @@
 <!-- omit in toc -->
 # coroboros/ci
 
-**Reusable workflows and composite actions for GitHub Actions.**
+**Reusable GitHub Actions workflows and composite actions.**
 
-Drop-in CI for any GitHub repository. The 1.0.0 wave covers npm packages: matrix verify, OIDC publish with NPM_TOKEN fallback, commit-message lint, gitleaks scan against a canonical ruleset. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
+npm package CI, OIDC + NPM_TOKEN publish, commit-message lint, gitleaks scan. Drop-in for any GitHub repository. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
 
 [![release](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&color=000000)](https://github.com/coroboros/ci/releases)
 [![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/ci.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/ci.yml)
