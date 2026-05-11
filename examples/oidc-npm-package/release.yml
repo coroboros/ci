@@ -11,12 +11,13 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write   # required by auto-version commit-back
+  id-token: write   # required by OIDC Trusted Publisher
 
 jobs:
   publish:
-    # Defaults: publish-via=pnpm, use-oidc=true, provenance=true, access=public
+    # Defaults: publish-via=pnpm, use-oidc=true, provenance=true, access=public,
+    #           auto-version=true, default-branch=main.
     # Prerequisite: configure Trusted Publisher on npmjs.com pointing at this
     # repository + workflow filename `release.yml` BEFORE the first tag push.
     uses: coroboros/ci/.github/workflows/npm-publish.yml@v1

@@ -58,16 +58,30 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - run: ${{ inputs.lint-command }}
+      # ─── stage: check ─────────────────────────────────────────────────────
+      - name: check-docs
+        run: |
+          if [ ! -f README.md ]; then
+            echo "::error::README.md must be present at project root"
+            exit 1
+          fi
 
-      - run: ${{ inputs.typecheck-command }}
+      - name: check-npm-lint
+        run: ${{ inputs.lint-command }}
 
-      - run: ${{ inputs.test-command }}
+      - name: check-npm-typecheck
+        run: ${{ inputs.typecheck-command }}
 
-      - run: ${{ inputs.build-command }}
+      # ─── stage: build ─────────────────────────────────────────────────────
+      - name: build-js
+        run: ${{ inputs.build-command }}
+
+      # ─── stage: test ──────────────────────────────────────────────────────
+      - name: test-npm-unit
+        run: ${{ inputs.test-command }}
 
   pack-check:
-    name: tarball check
+    name: pack-check
     if: github.event_name == 'pull_request' && inputs.package-dry-run
     runs-on: ubuntu-latest
     defaults:
@@ -80,4 +94,5 @@ jobs:
         with:
           node-version: '22'
 
-      - run: pnpm publish --dry-run --no-git-checks
+      - name: pack-check
+        run: pnpm publish --dry-run --no-git-checks
