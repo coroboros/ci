@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.2 - 11/05/2026
+
+### Documentation
+- `LICENSE.md` — canonical Coroboros private-repo wording: `text, code, configuration, and any derivative work` (was per-repo scope `GitHub Actions workflows, composite actions, configuration, ...`). Identical content now across `coroboros/brain`, `coroboros/claude-config`, `coroboros/ci`.
+
 ## v1.1.1 - 11/05/2026
 
 ### Documentation
