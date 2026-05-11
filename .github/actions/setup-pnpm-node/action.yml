@@ -10,7 +10,7 @@ inputs:
     required: false
     default: ''
   install:
-    description: Whether to run `pnpm install --frozen-lockfile`. Set to false for jobs that only need pnpm + node.
+    description: Whether to run `pnpm install --frozen-lockfile`. Set to false for jobs that only need pnpm + node (no lockfile in repo).
     required: false
     default: 'true'
 
@@ -21,10 +21,20 @@ runs:
       with:
         run_install: false
 
-    - uses: actions/setup-node@v4
+    # Two setup-node steps so `cache: pnpm` only kicks in when there is
+    # actually a lockfile to cache against. Skipping the cache avoids the
+    # "Dependencies lock file is not found" error in workflow-only repos.
+    - if: ${{ inputs.install == 'true' }}
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
         cache: pnpm
+        registry-url: ${{ inputs.registry-url }}
+
+    - if: ${{ inputs.install != 'true' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
         registry-url: ${{ inputs.registry-url }}
 
     - if: ${{ inputs.install == 'true' }}
