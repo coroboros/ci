@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write   # required by auto-version commit-back
+  id-token: write   # kept for provenance even on token-based publish
 
 jobs:
   publish:

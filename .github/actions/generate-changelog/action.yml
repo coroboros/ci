@@ -1,0 +1,29 @@
+name: Generate CHANGELOG entry
+description: |
+  Parses Conventional Commits since the previous tag and groups them by type.
+  Prepends the entry to CHANGELOG.md and exposes the rendered body for use as
+  GitHub release notes.
+
+inputs:
+  version:
+    description: The release version (no `v` prefix) used as the entry header.
+    required: true
+  working-directory:
+    description: Directory containing CHANGELOG.md.
+    required: false
+    default: '.'
+
+outputs:
+  body:
+    description: The rendered CHANGELOG entry. Pass to `gh release create --notes`.
+    value: ${{ steps.gen.outputs.body }}
+
+runs:
+  using: composite
+  steps:
+    - id: gen
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ inputs.version }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: node "${{ github.action_path }}/generate.mjs"

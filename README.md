@@ -20,19 +20,22 @@ npm package CI, OIDC + NPM_TOKEN publish, commit-message lint, gitleaks scan. Dr
 ## Requirements
 
 - A GitHub repository with Actions enabled.
-- Per-repo `package.json` with `packageManager: "pnpm@..."` (or pass `pnpm-version` upstream) — for workflows that touch pnpm.
-- For OIDC publish: a npm Trusted Publisher entry pointing at the caller's `release.yml`.
+- Per-repo `package.json` with `packageManager: "pnpm@..."` and `scripts.lint` / `typecheck` / `test` / `build` — defaults assume pnpm.
+- For OIDC publish: an npm Trusted Publisher entry pointing at the caller's `release.yml`.
+- For the default auto-version flow: caller grants `contents: write` and `id-token: write` on `release.yml` so CI can commit the bump back to `main` and emit provenance.
 
-## What ships in 1.0.0
+## What ships in 1.1.0
 
 | Kind | Path | Purpose |
 |---|---|---|
-| Reusable workflow | `.github/workflows/npm-ci.yml` | Matrix verify (lint + typecheck + test + build) with optional `pnpm publish --dry-run` on PRs |
-| Reusable workflow | `.github/workflows/npm-publish.yml` | npm publish with `publish-via` (`pnpm`/`npm`) and `use-oidc` (`true`/`false`) parameters |
+| Reusable workflow | `.github/workflows/npm-ci.yml` | Matrix verify with GitLab-named stages: `check-docs` → `check-npm-lint` → `check-npm-typecheck` → `build-js` → `test-npm-unit`, plus `pack-check` (`pnpm publish --dry-run`) on PRs |
+| Reusable workflow | `.github/workflows/npm-publish.yml` | Tag-triggered release: bumps `package.json.version` from the tag, generates a CHANGELOG entry from Conventional Commits, publishes via OIDC (default) or `NPM_TOKEN`, then commits the bump back to `main` and opens a GitHub release |
 | Reusable workflow | `.github/workflows/commits-lint.yml` | Lint commits in a PR range via `commitlint` |
 | Reusable workflow | `.github/workflows/secrets-scan.yml` | Run gitleaks against the canonical `.gitleaks.toml` in this repo |
 | Composite action | `.github/actions/setup-pnpm-node` | `pnpm` + `actions/setup-node` + `pnpm install --frozen-lockfile` |
-| Composite action | `.github/actions/verify-tag-version` | Fail loud if `GITHUB_REF_NAME` ≠ `package.json.version` |
+| Composite action | `.github/actions/bump-version-from-tag` | Rewrites `package.json.version = github.ref_name` (GitLab `build-version` equivalent) |
+| Composite action | `.github/actions/generate-changelog` | Builds a CHANGELOG entry from Conventional Commits since the previous tag |
+| Composite action | `.github/actions/verify-tag-version` | Verify-only path. Fail loud if `github.ref_name` ≠ `package.json.version`. Used when `auto-version: false` |
 | Shared config | `.gitleaks.toml` | Stack-specific rules (Resend, Neon, PostHog, GitHub fine-grained PATs) plus placeholder allowlist |
 
 Later waves: container build/publish (Docker buildx + GHCR/ECR), deploy targets (Cloudflare Workers, AWS Lambda), Node-service CI/CD, notification routing (Slack, Google Chat), shared `CODE_OF_CONDUCT.md` / `CONTRIBUTING.md` / `SECURITY.md` / `SUPPORT.md` templates.
@@ -69,13 +72,16 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 permissions:
-  contents: read
-  id-token: write
+  contents: write    # commit-back of the bump + CHANGELOG entry
+  id-token: write    # OIDC Trusted Publisher
 jobs:
   publish:
     uses: coroboros/ci/.github/workflows/npm-publish.yml@v1
-    # Defaults: publish-via=pnpm, use-oidc=true, provenance=true
+    # Defaults: publish-via=pnpm, use-oidc=true, provenance=true,
+    #           auto-version=true, default-branch=main.
 ```
+
+Release flow (caller side): `git tag x.y.z && git push origin x.y.z`. CI handles the rest — bump, CHANGELOG entry, npm publish, commit-back, GitHub release.
 
 Working examples live in [`examples/oidc-npm-package/`](examples/oidc-npm-package) and [`examples/token-npm-package/`](examples/token-npm-package).
 
@@ -104,6 +110,8 @@ Working examples live in [`examples/oidc-npm-package/`](examples/oidc-npm-packag
 | `use-oidc` | boolean | `true` | When `false`, expects `NPM_TOKEN` secret |
 | `access` | string | `public` | `public` or `restricted` |
 | `provenance` | boolean | `true` | Emit provenance attestation |
+| `auto-version` | boolean | `true` | CI rewrites `package.json.version` from `github.ref_name`, generates the CHANGELOG entry, commits the bump back to `default-branch`. When `false`, falls back to verify-only (`verify-tag-version`) and skips commit-back |
+| `default-branch` | string | `main` | Branch the release-bump commit is pushed back to. Only used when `auto-version: true` |
 | `lint-command` / `typecheck-command` / `test-command` / `build-command` | string | as in `npm-ci.yml` | |
 
 Secrets:
@@ -111,6 +119,17 @@ Secrets:
 | Secret | Required | Description |
 |---|---|---|
 | `NPM_TOKEN` | Only when `use-oidc: false` | npm publish token |
+
+Stage map (matches the GitLab `npm-packages` reference):
+
+```
+check-docs → check-npm-lint → check-npm-typecheck → build-js
+  → build-version    # auto-bump from tag, or verify-only
+  → build-changelog  # only when auto-version
+  → test-npm-unit
+  → deploy-package   # one of: pnpm/oidc, pnpm/token, npm/oidc, npm/token
+  → post-deploy-commit-back, post-deploy-github-release   # only when auto-version
+```
 
 ### `commits-lint.yml`
 

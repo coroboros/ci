@@ -1,0 +1,42 @@
+name: Bump package.json version from Git tag
+description: |
+  Rewrites package.json.version to match github.ref_name. SemVer-strict — the tag
+  must not carry a `v` prefix per Coroboros git-conventions. Used as the GitLab
+  build-version equivalent in the auto-version release flow.
+
+inputs:
+  working-directory:
+    description: Path to the package.json to rewrite.
+    required: false
+    default: '.'
+
+outputs:
+  version:
+    description: The version that was written to package.json (= github.ref_name).
+    value: ${{ steps.bump.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - id: bump
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: |
+        if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+          echo "::error::ref-name ($VERSION) is not a SemVer-strict tag (no v prefix, no build metadata)"
+          exit 1
+        fi
+        if [ ! -f package.json ]; then
+          echo "::error::package.json not found in $(pwd)"
+          exit 1
+        fi
+        node - <<'NODE'
+        const fs = require('node:fs');
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        pkg.version = process.env.VERSION;
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+        console.log(`package.json.version => ${pkg.version}`);
+        NODE
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"

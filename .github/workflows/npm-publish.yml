@@ -16,7 +16,7 @@ on:
         type: string
         default: https://registry.npmjs.org
       publish-via:
-        description: CLI to publish with. Either `pnpm` (default, native OIDC support) or `npm`.
+        description: CLI to publish with. Either `pnpm` (default, native OIDC) or `npm`.
         type: string
         default: pnpm
       use-oidc:
@@ -28,9 +28,21 @@ on:
         type: string
         default: public
       provenance:
-        description: Emit provenance attestation. Implicit with Trusted Publisher but the flag is still accepted.
+        description: Emit provenance attestation. Implicit with Trusted Publisher; the flag is still accepted for `npm` mode.
         type: boolean
         default: true
+      auto-version:
+        description: |
+          When true (default), CI rewrites package.json.version from github.ref_name, builds a
+          CHANGELOG.md entry from Conventional Commits since the previous tag, publishes, and
+          commits the bump back to `default-branch`. When false, CI asserts the tag matches
+          package.json.version (verify-only) and publishes without writing anything back.
+        type: boolean
+        default: true
+      default-branch:
+        description: Branch the release-bump commit is pushed back to. Only used when `auto-version` is true.
+        type: string
+        default: main
       lint-command:
         type: string
         default: pnpm lint
@@ -45,56 +57,121 @@ on:
         default: pnpm build
     secrets:
       NPM_TOKEN:
-        description: Required only when use-oidc is false.
+        description: Required only when `use-oidc` is false.
         required: false
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
   publish:
-    name: publish to npm (${{ inputs.publish-via }} / ${{ inputs.use-oidc && 'oidc' || 'token' }})
+    name: deploy-package (${{ inputs.publish-via }} / ${{ inputs.use-oidc && 'oidc' || 'token' }})
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: coroboros/ci/.github/actions/setup-pnpm-node@v1
         with:
           node-version: ${{ inputs.node-version }}
           registry-url: ${{ inputs.registry-url }}
 
-      - run: ${{ inputs.lint-command }}
+      # ─── stage: check ─────────────────────────────────────────────────────
+      - name: check-docs
+        run: |
+          if [ ! -f README.md ]; then
+            echo "::error::README.md must be present at project root"
+            exit 1
+          fi
 
-      - run: ${{ inputs.typecheck-command }}
+      - name: check-npm-lint
+        run: ${{ inputs.lint-command }}
 
-      - run: ${{ inputs.test-command }}
+      - name: check-npm-typecheck
+        run: ${{ inputs.typecheck-command }}
 
-      - uses: coroboros/ci/.github/actions/verify-tag-version@v1
+      # ─── stage: build ─────────────────────────────────────────────────────
+      - name: build-js
+        run: ${{ inputs.build-command }}
+
+      - id: build-version
+        name: build-version
+        if: inputs.auto-version
+        uses: coroboros/ci/.github/actions/bump-version-from-tag@v1
         with:
           working-directory: ${{ inputs.working-directory }}
 
-      - run: ${{ inputs.build-command }}
+      - name: build-version (verify-only)
+        if: ${{ !inputs.auto-version }}
+        uses: coroboros/ci/.github/actions/verify-tag-version@v1
+        with:
+          working-directory: ${{ inputs.working-directory }}
 
-      - name: Publish via pnpm (OIDC)
+      - id: build-changelog
+        name: build-changelog
+        if: inputs.auto-version
+        uses: coroboros/ci/.github/actions/generate-changelog@v1
+        with:
+          version: ${{ steps.build-version.outputs.version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      # ─── stage: test ──────────────────────────────────────────────────────
+      - name: test-npm-unit
+        run: ${{ inputs.test-command }}
+
+      # ─── stage: deploy ────────────────────────────────────────────────────
+      - name: deploy-package (pnpm / oidc)
         if: inputs.publish-via == 'pnpm' && inputs.use-oidc
         run: pnpm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
 
-      - name: Publish via npm (OIDC)
+      - name: deploy-package (npm / oidc)
         if: inputs.publish-via == 'npm' && inputs.use-oidc
         run: npm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }}
 
-      - name: Publish via pnpm (NPM_TOKEN)
+      - name: deploy-package (pnpm / token)
         if: inputs.publish-via == 'pnpm' && !inputs.use-oidc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
 
-      - name: Publish via npm (NPM_TOKEN)
+      - name: deploy-package (npm / token)
         if: inputs.publish-via == 'npm' && !inputs.use-oidc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }}
+
+      # ─── stage: post-deploy ───────────────────────────────────────────────
+      - name: post-deploy-commit-back
+        if: inputs.auto-version
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          wd='${{ inputs.working-directory }}'
+          git add "${wd}/package.json" "${wd}/CHANGELOG.md"
+          if git diff --staged --quiet; then
+            echo "Nothing to commit back."
+            exit 0
+          fi
+          git commit -m "chore(release): ${{ github.ref_name }}"
+          if ! git push origin "HEAD:${{ inputs.default-branch }}"; then
+            echo "::warning::Failed to push release bump to ${{ inputs.default-branch }} — check branch protection or GITHUB_TOKEN permissions"
+          fi
+
+      - name: post-deploy-github-release
+        if: inputs.auto-version
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: ${{ steps.build-changelog.outputs.body }}
+        run: |
+          printf '%s\n' "$NOTES" > /tmp/release-notes.md
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --notes-file /tmp/release-notes.md
