@@ -36,7 +36,7 @@ Global rules (`~/.claude/rules/*`) inherit automatically — tech-standards, wri
 ## Public API contract
 
 - `coroboros/ci/.github/workflows/<name>.yml@v1` resolves the floating major. Consumers pin `@v1` (or `@1.2.3` for immutable).
-- **Visibility** — repo is private, with Actions access set to *"Accessible from repositories owned by 'coroboros'"*. Caller repos must be inside the `coroboros` org. Forks outside the org cannot reach the reusable workflows; see README § Fork PR handling.
+- **Visibility** — repo is private, with Actions access set to *"Accessible from repositories owned by 'coroboros'"*. Caller repos must live inside the `coroboros` org. Forks outside the org cannot reach the reusable workflows; fork-PR mitigations live in `../MIGRATION_GITLAB_CI_TO_GITHUB_ACTIONS.md` § Visibility model.
 - Each workflow's inputs / secrets / outputs are documented in `README.md`.
 - Breaking changes cut a new floating major (`v2`); the `v1` alias stops moving.
 
