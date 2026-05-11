@@ -5,10 +5,13 @@
 <!-- omit in toc -->
 # coroboros/ci
 
-**Coroboros-internal GitHub Actions workflows + composite actions.**
+**Coroboros CI templates.**
 
-npm-package CI, OIDC + NPM_TOKEN publish, commit-message lint, gitleaks scan. Consumed by every `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v1`. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
+Pin via `coroboros/ci@v1` in `.github/workflows/`.
 
+[![visibility](https://img.shields.io/badge/visibility-internal-000000?style=flat-square)](https://github.com/coroboros)
+[![v1](https://img.shields.io/badge/floating-v1-000000?style=flat-square)](CHANGELOG.md)
+[![license](https://img.shields.io/badge/license-MIT-000000?style=flat-square)](LICENSE.md)
 [![coroboros.com](https://img.shields.io/badge/coroboros.com-000000?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48cGF0aCBkPSJNMiAxMmgyME0xMiAyYTE1LjMgMTUuMyAwIDAgMSA0IDEwIDE1LjMgMTUuMyAwIDAgMS00IDEwIDE1LjMgMTUuMyAwIDAgMS00LTEwIDE1LjMgMTUuMyAwIDAgMSA0LTEweiIvPjwvc3ZnPg==)](https://coroboros.com)
 
 </div>
