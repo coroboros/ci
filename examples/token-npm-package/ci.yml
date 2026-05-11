@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: coroboros/ci/.github/workflows/npm-ci.yml@v1
+
+  commits:
+    uses: coroboros/ci/.github/workflows/commits-lint.yml@v1
+
+  secrets:
+    uses: coroboros/ci/.github/workflows/secrets-scan.yml@v1

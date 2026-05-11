@@ -1,0 +1,83 @@
+name: npm-package CI
+
+on:
+  workflow_call:
+    inputs:
+      node-versions:
+        description: JSON array of Node versions to run the matrix on.
+        type: string
+        default: '["22", "current"]'
+      working-directory:
+        description: Path to the package root inside the consuming repo.
+        type: string
+        default: '.'
+      lint-command:
+        description: Shell command for lint.
+        type: string
+        default: pnpm lint
+      typecheck-command:
+        description: Shell command for typecheck.
+        type: string
+        default: pnpm typecheck
+      test-command:
+        description: Shell command for tests.
+        type: string
+        default: pnpm test
+      build-command:
+        description: Shell command for build.
+        type: string
+        default: pnpm build
+      package-dry-run:
+        description: Run `pnpm publish --dry-run` on PRs to validate the tarball.
+        type: boolean
+        default: true
+  workflow_dispatch:
+    inputs:
+      node-versions:
+        type: string
+        default: '["22", "current"]'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ${{ fromJson(inputs.node-versions) }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: coroboros/ci/.github/actions/setup-pnpm-node@v1
+        with:
+          node-version: ${{ matrix.node }}
+
+      - run: ${{ inputs.lint-command }}
+
+      - run: ${{ inputs.typecheck-command }}
+
+      - run: ${{ inputs.test-command }}
+
+      - run: ${{ inputs.build-command }}
+
+  pack-check:
+    name: tarball check
+    if: github.event_name == 'pull_request' && inputs.package-dry-run
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: coroboros/ci/.github/actions/setup-pnpm-node@v1
+        with:
+          node-version: '22'
+
+      - run: pnpm publish --dry-run --no-git-checks

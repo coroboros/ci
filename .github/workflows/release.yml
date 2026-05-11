@@ -1,0 +1,38 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  alias:
+    name: push floating-major alias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push floating major (vN) tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          # Skip prerelease tags from aliasing
+          if [[ "$tag" == *-* ]]; then
+            echo "prerelease tag $tag — skipping alias"
+            exit 0
+          fi
+          major="${tag%%.*}"
+          git config user.name "coroboros"
+          git config user.email "ob@coroboros.com"
+          git tag -f "v${major}" "$tag"
+          git push origin "v${major}" --force
+          echo "pushed v${major} → ${tag}"

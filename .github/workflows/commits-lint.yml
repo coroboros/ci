@@ -1,0 +1,45 @@
+name: commit-message lint
+
+on:
+  workflow_call:
+    inputs:
+      config-path:
+        description: Path to commitlint config (resolved by `commitlint --config`).
+        type: string
+        default: commitlint.config.js
+      working-directory:
+        description: Path to the repo root for pnpm install.
+        type: string
+        default: '.'
+  workflow_dispatch:
+    inputs:
+      config-path:
+        type: string
+        default: commitlint.config.js
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    if: github.event_name == 'pull_request'
+    name: lint commit messages
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: coroboros/ci/.github/actions/setup-pnpm-node@v1
+        with:
+          node-version: '22'
+
+      - run: |
+          pnpm exec commitlint \
+            --from ${{ github.event.pull_request.base.sha }} \
+            --to   ${{ github.event.pull_request.head.sha }} \
+            --config ${{ inputs.config-path }} \
+            --verbose

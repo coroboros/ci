@@ -1,0 +1,100 @@
+name: npm-package release
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node version for the release runner.
+        type: string
+        default: '22'
+      working-directory:
+        description: Path to the package root inside the consuming repo.
+        type: string
+        default: '.'
+      registry-url:
+        description: npm registry URL.
+        type: string
+        default: https://registry.npmjs.org
+      publish-via:
+        description: CLI to publish with. Either `pnpm` (default, native OIDC support) or `npm`.
+        type: string
+        default: pnpm
+      use-oidc:
+        description: When true, publish via npm Trusted Publisher (no NPM_TOKEN). When false, expects NPM_TOKEN secret.
+        type: boolean
+        default: true
+      access:
+        description: Package access. `public` (default, required for scoped public) or `restricted`.
+        type: string
+        default: public
+      provenance:
+        description: Emit provenance attestation. Implicit with Trusted Publisher but the flag is still accepted.
+        type: boolean
+        default: true
+      lint-command:
+        type: string
+        default: pnpm lint
+      typecheck-command:
+        type: string
+        default: pnpm typecheck
+      test-command:
+        type: string
+        default: pnpm test
+      build-command:
+        type: string
+        default: pnpm build
+    secrets:
+      NPM_TOKEN:
+        description: Required only when use-oidc is false.
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: publish to npm (${{ inputs.publish-via }} / ${{ inputs.use-oidc && 'oidc' || 'token' }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: coroboros/ci/.github/actions/setup-pnpm-node@v1
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: ${{ inputs.registry-url }}
+
+      - run: ${{ inputs.lint-command }}
+
+      - run: ${{ inputs.typecheck-command }}
+
+      - run: ${{ inputs.test-command }}
+
+      - uses: coroboros/ci/.github/actions/verify-tag-version@v1
+        with:
+          working-directory: ${{ inputs.working-directory }}
+
+      - run: ${{ inputs.build-command }}
+
+      - name: Publish via pnpm (OIDC)
+        if: inputs.publish-via == 'pnpm' && inputs.use-oidc
+        run: pnpm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
+
+      - name: Publish via npm (OIDC)
+        if: inputs.publish-via == 'npm' && inputs.use-oidc
+        run: npm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }}
+
+      - name: Publish via pnpm (NPM_TOKEN)
+        if: inputs.publish-via == 'pnpm' && !inputs.use-oidc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
+
+      - name: Publish via npm (NPM_TOKEN)
+        if: inputs.publish-via == 'npm' && !inputs.use-oidc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }}

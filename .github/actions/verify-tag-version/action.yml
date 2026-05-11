@@ -1,0 +1,22 @@
+name: Verify tag matches package.json version
+description: Fails loud if GITHUB_REF_NAME does not match package.json.version (SemVer-strict, no `v` prefix).
+
+inputs:
+  working-directory:
+    description: Path to the package.json to check.
+    required: false
+    default: '.'
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        pkg_version=$(node -p "require('./package.json').version")
+        tag_version="${GITHUB_REF_NAME}"
+        if [ "$pkg_version" != "$tag_version" ]; then
+          echo "::error::tag ($tag_version) does not match package.json version ($pkg_version)"
+          exit 1
+        fi
+        echo "tag ${tag_version} matches package.json version"
