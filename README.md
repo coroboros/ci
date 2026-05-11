@@ -5,9 +5,9 @@
 <!-- omit in toc -->
 # coroboros/ci
 
-**Reusable GitHub Actions for the Coroboros stack.**
+**Reusable workflows and composite actions for GitHub Actions.**
 
-Workflows and composite actions consumed by sibling Coroboros repos. The first wave covers `@coroboros/*` npm packages: matrix verify, OIDC publish with NPM_TOKEN fallback, commit-message lint, gitleaks scan against a canonical ruleset. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
+Drop-in CI for any GitHub repository. The 1.0.0 wave covers npm packages: matrix verify, OIDC publish with NPM_TOKEN fallback, commit-message lint, gitleaks scan against a canonical ruleset. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
 
 [![release](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&color=000000)](https://github.com/coroboros/ci/releases)
 [![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/ci.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/ci.yml)
@@ -39,7 +39,7 @@ Later waves: container build/publish (Docker buildx + GHCR/ECR), deploy targets 
 
 ## Consume
 
-Pin by floating major (`@v1`) for sibling Coroboros repos:
+Pin by floating major (`@v1`) — auto-tracks non-breaking updates:
 
 ```yaml
 # .github/workflows/ci.yml
@@ -142,7 +142,7 @@ The reusable workflow sets `permissions: { id-token: write }`. The caller must s
 | Tag | Stability | Use when |
 |---|---|---|
 | `1.2.3` | Immutable | Reproducibility matters |
-| `v1` | Floating major | Sibling Coroboros repos — auto-tracks non-breaking updates within the v1 line |
+| `v1` | Floating major | Auto-tracks non-breaking updates within the v1 line |
 
 A breaking change cuts a new floating major (`v2`); the `v1` alias stops moving.
 

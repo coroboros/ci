@@ -1,6 +1,6 @@
 # coroboros/ci
 
-Reusable GitHub Actions workflows + composite actions for the Coroboros stack. Public repo. No npm publish — workflows-only artifact. Scope is org-wide; the 1.0.0 wave covers `@coroboros/*` npm packages. Container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
+Reusable GitHub Actions workflows + composite actions. Public repo, open to any consumer. No npm publish — workflows-only artifact. The 1.0.0 wave covers npm packages; container builds, deploy targets, Node-service CI/CD, and notification routing land in later waves.
 
 ## Canonical rules
 
