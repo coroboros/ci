@@ -1,6 +1,6 @@
 # License
 
-Copyright (c) 2026 Coroboros
+Copyright (c) 2026–End of Time Coroboros
 
 All rights reserved.
 

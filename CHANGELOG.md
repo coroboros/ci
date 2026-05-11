@@ -3,9 +3,9 @@
 ## v1.1.1 - 11/05/2026
 
 ### Documentation
-- `LICENSE.md` — flip from MIT to All Rights Reserved (private + org-internal repo; aligns with `coroboros/brain` and `coroboros/claude-config`)
+- `LICENSE.md` — flip from MIT to All Rights Reserved (private + org-internal repo; aligns with `coroboros/brain` and `coroboros/claude-config`). Copyright line carries the Coroboros `2026–End of Time` signature
 - `README.md` — header badge `license-MIT` → `license-All Rights Reserved`; footer `[MIT](LICENSE.md)` → `All Rights Reserved. See [LICENSE.md](LICENSE.md).`
-- `package.json` — `license` field `MIT` → `UNLICENSED` (npm standard for proprietary packages)
+- `package.json` — `license` field `MIT` → `SEE LICENSE IN LICENSE.md` (SPDX-compatible value when the file is the source of truth)
 
 ## v1.1.0 - 11/05/2026
 
