@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.3 - 12/05/2026
+
+### Documentation
+- README restructured — `## Development` replaced by `## Usage` (with `### Stages`, `### Flow`, `### Environment Variables`, `### Examples` subsections); `## Security` reduced to a single link.
+- Renamed `docs/usage.md` → `docs/examples.md`. Cross-references updated.
+- `docs/security.md` now opens with the pnpm-only constraint.
+
 ## v0.1.2 - 12/05/2026
 
 ### Documentation

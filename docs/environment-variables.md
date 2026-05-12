@@ -2,7 +2,7 @@
 
 Each variable below is passed either as a **secret** (`secrets:` block on `workflow_call`) or as an **input** (`inputs:` block).
 
-> The JS workflows use **pnpm** (resolved via corepack). `NPM_*` variable names are kept — pnpm reads the same `.npmrc` syntax. See `usage.md` § *Package manager*.
+> The JS workflows use **pnpm** (resolved via corepack). `NPM_*` variable names are kept — pnpm reads the same `.npmrc` syntax. See `examples.md` § *Package manager*.
 
 **Naming convention**: inputs are `kebab-case`, secrets are `UPPER_SNAKE_CASE`. A variable is mandatory only when the workflow that consumes it is in use; workflows outside a scope do not require the scope's variables.
 

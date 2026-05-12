@@ -26,7 +26,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - `.github/workflows/*.yml` — six entry-point reusable workflows (`javascript-npm-package`, `javascript-image`, `javascript-assets`, `javascript-function`, `container-image`, `node-service`), two sub-workflows (`security`, `notify`), two self-CI (`ci`, `ci-security`).
 - `.github/actions/*/action.yml` — seventeen composite actions, one per pipeline step.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
-- `docs/usage.md`, `docs/environment-variables.md`, `docs/flow.md`, `docs/stages.md`, `docs/security.md`.
+- `docs/examples.md`, `docs/environment-variables.md`, `docs/flow.md`, `docs/stages.md`, `docs/security.md`.
 
 ## Rules
 
@@ -43,7 +43,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - **No `curl | bash` for tooling**: install binaries from release tarballs with SHA-256 verification (see `ci.yml` for `actionlint` and `security.yml` for `gitleaks`). Update the SHA whenever bumping the version input.
 - **Action and workflow files contain implementation only**: no editorial comments justifying choices, no provenance metadata. Rationale lives in `CLAUDE.md` or `CHANGELOG.md`.
 - **Adding a new workflow or composite action**:
-  1. Update `docs/usage.md` with a wire-up example.
+  1. Update `docs/examples.md` with a wire-up example.
   2. Update `docs/environment-variables.md` if new inputs / secrets are introduced.
   3. Update `README.md` pipeline / action tables.
   4. Run `actionlint -shellcheck=shellcheck` locally — must exit 0.

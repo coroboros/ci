@@ -2,6 +2,8 @@
 
 Security baseline for the reusable workflows + composite actions. Every consumer pipeline inherits these guarantees by default.
 
+> pnpm is the only supported package manager. Pin the version in the consumer's `package.json packageManager` field; `corepack` resolves it on every job.
+
 ## Supply chain — pnpm installs
 
 `pnpm install --frozen-lockfile --ignore-scripts` runs on every install step (`--prod` for production-only installs, e.g. function packaging or publish-time install).

@@ -1,4 +1,4 @@
-# Usage
+# Examples
 
 Each reusable workflow under `.github/workflows/` is a full pipeline for one project type. A consumer repo wires it in via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`. Composite actions under `.github/actions/` are the per-step building blocks; call them directly when you assemble your own pipeline.
 

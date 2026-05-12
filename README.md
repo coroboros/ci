@@ -82,19 +82,27 @@ Each composite action under `.github/actions/` is a single pipeline step. Use th
 | `notify-slack` | Post a deployment notification to a Slack webhook. |
 | `notify-gchat` | Post a deployment notification to a Google Chat webhook. |
 
+## Usage
+
+### Stages
+
+[`docs/stages.md`](docs/stages.md) — ten-stage conceptual pipeline.
+
+### Flow
+
+[`docs/flow.md`](docs/flow.md) — branch model and trigger semantics.
+
+### Environment Variables
+
+[`docs/environment-variables.md`](docs/environment-variables.md) — full secret / input catalog.
+
+### Examples
+
+[`docs/examples.md`](docs/examples.md) — consumer wire-up examples per workflow.
+
 ## Security
 
-`pnpm install --frozen-lockfile --ignore-scripts` on every install, per-job secret isolation (no `secrets: inherit`), `pnpm publish --provenance --no-git-checks` with OIDC Trusted Publisher, gitleaks scanning via the upstream CLI, SHA-pinned third-party actions. Full baseline: [`docs/security.md`](docs/security.md).
-
-> pnpm is the only supported package manager. Pin the version in the consumer's `package.json packageManager` field; `corepack` resolves it on every job.
-
-## Development
-
-- [`docs/usage.md`](docs/usage.md) — consumer wire-up examples per workflow.
-- [`docs/environment-variables.md`](docs/environment-variables.md) — full secret / input catalog.
-- [`docs/flow.md`](docs/flow.md) — branch model and trigger semantics.
-- [`docs/stages.md`](docs/stages.md) — ten-stage conceptual pipeline.
-- [`docs/security.md`](docs/security.md) — supply-chain baseline.
+[`docs/security.md`](docs/security.md)
 
 ## License
 
