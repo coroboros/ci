@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.2 - 12/05/2026
+
+### Documentation
+- README badge row aligned with the Coroboros standard set — added `latest` (dynamic release link), `ci` (workflow status), `branch`, `stars`, `skills`. Dropped the static `latest-v0` badge in favour of the dynamic release shield.
+
 ## v0.1.1 - 12/05/2026
 
 ### Configuration
