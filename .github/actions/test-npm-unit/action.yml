@@ -1,11 +1,9 @@
 name: test-npm-unit
-description: |
-  GitLab `test-npm-unit` equivalent — runs the package's test script. Default
-  command targets pnpm; override via `command` for non-pnpm consumers.
+description: Runs the test command.
 
 inputs:
   command:
-    description: Test command to run.
+    description: Test command.
     required: false
     default: pnpm test
   working-directory:

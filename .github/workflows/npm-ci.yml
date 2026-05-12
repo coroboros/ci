@@ -28,11 +28,11 @@ on:
         type: string
         default: pnpm build
       require-docs-dir:
-        description: Require a `docs/` directory in addition to README.md (GitLab npm-packages parity, opt-in).
+        description: Also require a `docs/` directory.
         type: boolean
         default: false
       package-dry-run:
-        description: Run `pnpm publish --dry-run` on PRs to validate the tarball.
+        description: Run `pnpm publish --dry-run` on PRs.
         type: boolean
         default: true
   workflow_dispatch:

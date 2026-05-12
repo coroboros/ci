@@ -1,8 +1,5 @@
 name: post-deploy-github-release
-description: |
-  Create a GitHub release for the pushed tag with the provided notes. Closes
-  the auto-version loop after `deploy-npm-package` and
-  `post-deploy-commit-back`. SemVer-strict — tag must not carry a `v` prefix.
+description: Creates a GitHub release for the pushed tag with the provided notes.
 
 inputs:
   tag:
@@ -10,14 +7,14 @@ inputs:
     required: false
     default: ${{ github.ref_name }}
   title:
-    description: Release title (no `v` prefix per Coroboros git-conventions).
+    description: Release title.
     required: false
     default: ${{ github.ref_name }}
   notes:
-    description: Release body (markdown). Typically the `generate-changelog` body output.
+    description: Release body (markdown).
     required: true
   github-token:
-    description: gh CLI auth token (typically `secrets.GITHUB_TOKEN`).
+    description: gh CLI auth token.
     required: true
 
 runs:

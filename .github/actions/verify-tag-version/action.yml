@@ -1,9 +1,9 @@
-name: Verify tag matches package.json version
-description: Fails loud if GITHUB_REF_NAME does not match package.json.version (SemVer-strict, no `v` prefix).
+name: verify-tag-version
+description: Fails if `GITHUB_REF_NAME` does not match `package.json.version`.
 
 inputs:
   working-directory:
-    description: Path to the package.json to check.
+    description: Path to the package root.
     required: false
     default: '.'
 

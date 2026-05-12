@@ -1,32 +1,28 @@
 name: post-deploy-commit-back
-description: |
-  Commit and push generated release artifacts (default: `package.json` +
-  `CHANGELOG.md`) back to the default branch as a bot. Warns instead of
-  failing when the push is rejected, so a protected branch does not break the
-  release after the package is already published.
+description: Commits and pushes `paths` back to `default-branch` as a bot. Warns on push rejection instead of failing.
 
 inputs:
   paths:
-    description: Space-separated paths to stage (resolved from the repo root).
+    description: Space-separated paths to stage.
     required: false
     default: package.json CHANGELOG.md
   commit-message:
-    description: Commit message body.
+    description: Commit message.
     required: true
   default-branch:
-    description: Branch the commit is pushed back to.
+    description: Target branch.
     required: false
     default: main
   working-directory:
-    description: Path prefix added to each entry in `paths` (so paths can be package-relative).
+    description: Prefix added to each entry in `paths`.
     required: false
     default: '.'
   user-name:
-    description: Git user.name for the commit.
+    description: Git `user.name`.
     required: false
     default: 'github-actions[bot]'
   user-email:
-    description: Git user.email for the commit.
+    description: Git `user.email`.
     required: false
     default: '41898282+github-actions[bot]@users.noreply.github.com'
 

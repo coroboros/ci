@@ -1,11 +1,9 @@
 name: check-npm-typecheck
-description: |
-  TypeScript typecheck step. No GitLab analogue — added because Coroboros is
-  TypeScript-strict by default. Slots into the `check` stage after lint.
+description: Runs the typecheck command.
 
 inputs:
   command:
-    description: Typecheck command to run.
+    description: Typecheck command.
     required: false
     default: pnpm typecheck
   working-directory:

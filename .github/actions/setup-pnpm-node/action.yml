@@ -1,16 +1,16 @@
-name: Setup pnpm + Node
-description: Checkout-aware pnpm install + Node setup with pnpm cache.
+name: setup-pnpm-node
+description: Sets up pnpm + Node with the pnpm cache. Runs `pnpm install --frozen-lockfile` by default.
 
 inputs:
   node-version:
-    description: Node version (e.g. 22, current).
+    description: Node version (e.g. `22`, `current`).
     required: true
   registry-url:
-    description: npm registry URL. Set for publish jobs.
+    description: npm registry URL.
     required: false
     default: ''
   install:
-    description: Whether to run `pnpm install --frozen-lockfile`. Set to false for jobs that only need pnpm + node (no lockfile in repo).
+    description: Run `pnpm install --frozen-lockfile`.
     required: false
     default: 'true'
 

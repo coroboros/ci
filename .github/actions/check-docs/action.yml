@@ -1,9 +1,5 @@
 name: check-docs
-description: |
-  GitLab `check-docs` equivalent — fail loud if `README.md` is missing at the
-  package root. Optional `require-docs-dir: true` also enforces a `docs/`
-  directory (GitLab npm-packages variant). Caller composes this into the
-  `check` stage of any workflow.
+description: Requires `README.md` at the package root. Optionally requires `docs/` when `require-docs-dir: true`.
 
 inputs:
   working-directory:
@@ -11,7 +7,7 @@ inputs:
     required: false
     default: '.'
   require-docs-dir:
-    description: When 'true', also fail if `docs/` is missing (GitLab npm-packages parity).
+    description: Also require a `docs/` directory.
     required: false
     default: 'false'
 

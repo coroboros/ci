@@ -1,13 +1,9 @@
 name: build-js
-description: |
-  GitLab `build-js` equivalent — runs the package's build script. Faithful to
-  the GitLab graceful-skip behavior: when `package.json` has no `scripts.build`
-  entry, the step logs and exits 0 instead of failing. Set `skip-if-missing` to
-  `false` to require the script and fail loud when absent.
+description: Runs the build command. Exits 0 when `package.json` has no `scripts.build` entry, unless `skip-if-missing: false`.
 
 inputs:
   command:
-    description: Build command to run.
+    description: Build command.
     required: false
     default: pnpm build
   working-directory:
@@ -15,7 +11,7 @@ inputs:
     required: false
     default: '.'
   skip-if-missing:
-    description: When 'true' (default, GitLab parity), skip the build if `scripts.build` is absent.
+    description: Skip when `scripts.build` is absent instead of failing.
     required: false
     default: 'true'
 

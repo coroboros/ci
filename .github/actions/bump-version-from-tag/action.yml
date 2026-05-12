@@ -1,18 +1,15 @@
-name: Bump package.json version from Git tag
-description: |
-  Rewrites package.json.version to match github.ref_name. SemVer-strict — the tag
-  must not carry a `v` prefix per Coroboros git-conventions. Used as the GitLab
-  build-version equivalent in the auto-version release flow.
+name: bump-version-from-tag
+description: Rewrites `package.json.version` to match `github.ref_name`. SemVer-strict — no `v` prefix.
 
 inputs:
   working-directory:
-    description: Path to the package.json to rewrite.
+    description: Path to the package root.
     required: false
     default: '.'
 
 outputs:
   version:
-    description: The version that was written to package.json (= github.ref_name).
+    description: The version written to `package.json`.
     value: ${{ steps.bump.outputs.version }}
 
 runs:

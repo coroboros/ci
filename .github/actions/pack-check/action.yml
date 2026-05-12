@@ -1,11 +1,9 @@
 name: pack-check
-description: |
-  Dry-run `publish` to validate the tarball (`.npmignore` / `files:`) before
-  merge. No GitLab analogue. Defaults to pnpm; switch via `publish-via`.
+description: Runs `pnpm publish --dry-run` (or `npm publish --dry-run`) to validate the tarball.
 
 inputs:
   publish-via:
-    description: CLI to dry-run with. `pnpm` (default) or `npm`.
+    description: CLI to dry-run with — `pnpm` or `npm`.
     required: false
     default: pnpm
   working-directory:

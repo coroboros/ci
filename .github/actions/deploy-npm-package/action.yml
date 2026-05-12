@@ -1,25 +1,21 @@
 name: deploy-npm-package
-description: |
-  GitLab `deploy-package` equivalent — publishes the package to the npm
-  registry. Four conditional modes: pnpm|npm × oidc|token. OIDC is the default
-  (npm Trusted Publisher, no `NPM_TOKEN` needed); token mode reads
-  `NODE_AUTH_TOKEN` from the `npm-token` input.
+description: Publishes the package to the npm registry across 4 modes — pnpm|npm × oidc|token.
 
 inputs:
   publish-via:
-    description: CLI to publish with. `pnpm` (default) or `npm`.
+    description: CLI to publish with — `pnpm` or `npm`.
     required: false
     default: pnpm
   use-oidc:
-    description: When 'true' (default), publish via npm Trusted Publisher. When 'false', expects `npm-token`.
+    description: Publish via npm Trusted Publisher. When `false`, reads `npm-token`.
     required: false
     default: 'true'
   access:
-    description: Package access. `public` (default) or `restricted`.
+    description: Package access — `public` or `restricted`.
     required: false
     default: public
   provenance:
-    description: Emit provenance attestation. Implicit with OIDC; flag still respected in `npm`/token mode.
+    description: Emit provenance attestation.
     required: false
     default: 'true'
   working-directory:
@@ -27,7 +23,7 @@ inputs:
     required: false
     default: '.'
   npm-token:
-    description: Required when `use-oidc` is 'false'. Passed to `NODE_AUTH_TOKEN`.
+    description: Auth token passed to `NODE_AUTH_TOKEN` when `use-oidc: false`.
     required: false
     default: ''
 

@@ -4,11 +4,11 @@ on:
   workflow_call:
     inputs:
       config-path:
-        description: Path to commitlint config (resolved by `commitlint --config`).
+        description: Path to the commitlint config.
         type: string
         default: commitlint.config.js
       working-directory:
-        description: Path to the repo root for pnpm install.
+        description: Path to the repo root.
         type: string
         default: '.'
   workflow_dispatch:

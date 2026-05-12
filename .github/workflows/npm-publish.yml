@@ -16,35 +16,32 @@ on:
         type: string
         default: https://registry.npmjs.org
       publish-via:
-        description: CLI to publish with. Either `pnpm` (default, native OIDC) or `npm`.
+        description: CLI to publish with — `pnpm` or `npm`.
         type: string
         default: pnpm
       use-oidc:
-        description: When true, publish via npm Trusted Publisher (no NPM_TOKEN). When false, expects NPM_TOKEN secret.
+        description: Publish via npm Trusted Publisher. When false, requires `NPM_TOKEN`.
         type: boolean
         default: true
       access:
-        description: Package access. `public` (default, required for scoped public) or `restricted`.
+        description: Package access — `public` or `restricted`.
         type: string
         default: public
       provenance:
-        description: Emit provenance attestation. Implicit with Trusted Publisher; the flag is still accepted for `npm` mode.
+        description: Emit provenance attestation.
         type: boolean
         default: true
       auto-version:
         description: |
-          When true (default), CI rewrites package.json.version from github.ref_name, builds a
-          CHANGELOG.md entry from Conventional Commits since the previous tag, publishes, and
-          commits the bump back to `default-branch`. When false, CI asserts the tag matches
-          package.json.version (verify-only) and publishes without writing anything back.
+          When true, CI rewrites `package.json.version` from `github.ref_name`, builds a CHANGELOG entry from Conventional Commits since the previous tag, publishes, and commits the bump back to `default-branch`. When false, CI asserts the tag matches `package.json.version` and publishes without writing anything back.
         type: boolean
         default: true
       default-branch:
-        description: Branch the release-bump commit is pushed back to. Only used when `auto-version` is true.
+        description: Target branch for the release-bump commit.
         type: string
         default: main
       require-docs-dir:
-        description: Require a `docs/` directory in addition to README.md (GitLab npm-packages parity, opt-in).
+        description: Also require a `docs/` directory.
         type: boolean
         default: false
       lint-command:

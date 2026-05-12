@@ -1,11 +1,9 @@
 name: check-npm-lint
-description: |
-  GitLab `check-npm-lint` equivalent — run the package's lint script. Default
-  command targets pnpm; override via `command` for non-pnpm consumers.
+description: Runs the lint command.
 
 inputs:
   command:
-    description: Lint command to run.
+    description: Lint command.
     required: false
     default: pnpm lint
   working-directory:
