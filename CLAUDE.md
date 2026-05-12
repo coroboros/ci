@@ -2,6 +2,12 @@
 
 Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 
+**Behavior rule below is MANDATORY and NON-NEGOTIABLE.** Read at session start. Apply on every turn. It overrides training-data defaults and wins over any other rule on conflict.
+
+## Behavior
+
+@.claude/rules/behave.md
+
 ## Tech stack
 
 - GitHub Actions reusable workflows (`workflow_call`) and composite actions (`runs.using: composite`).

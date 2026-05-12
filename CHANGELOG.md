@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.1 - 12/05/2026
+
+### Configuration
+- Added `.claude/rules/behave.md` and imported it from `CLAUDE.md` to surface the behavioral baseline at every session start.
+
 ## v0.1.0 - 12/05/2026
 
 ### Features

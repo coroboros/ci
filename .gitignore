@@ -7,4 +7,3 @@ node_modules/
 *.bak
 .actionlint-cache/
 .github-temp/
-.claude
