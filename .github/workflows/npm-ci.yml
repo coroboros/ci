@@ -27,6 +27,10 @@ on:
         description: Shell command for build.
         type: string
         default: pnpm build
+      require-docs-dir:
+        description: Require a `docs/` directory in addition to README.md (GitLab npm-packages parity, opt-in).
+        type: boolean
+        default: false
       package-dry-run:
         description: Run `pnpm publish --dry-run` on PRs to validate the tarball.
         type: boolean
@@ -48,9 +52,6 @@ jobs:
       fail-fast: false
       matrix:
         node: ${{ fromJson(inputs.node-versions) }}
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v4
 
@@ -60,33 +61,41 @@ jobs:
 
       # ─── stage: check ─────────────────────────────────────────────────────
       - name: check-docs
-        run: |
-          if [ ! -f README.md ]; then
-            echo "::error::README.md must be present at project root"
-            exit 1
-          fi
+        uses: coroboros/ci/.github/actions/check-docs@v1
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          require-docs-dir: ${{ inputs.require-docs-dir }}
 
       - name: check-npm-lint
-        run: ${{ inputs.lint-command }}
+        uses: coroboros/ci/.github/actions/check-npm-lint@v1
+        with:
+          command: ${{ inputs.lint-command }}
+          working-directory: ${{ inputs.working-directory }}
 
       - name: check-npm-typecheck
-        run: ${{ inputs.typecheck-command }}
+        uses: coroboros/ci/.github/actions/check-npm-typecheck@v1
+        with:
+          command: ${{ inputs.typecheck-command }}
+          working-directory: ${{ inputs.working-directory }}
 
       # ─── stage: build ─────────────────────────────────────────────────────
       - name: build-js
-        run: ${{ inputs.build-command }}
+        uses: coroboros/ci/.github/actions/build-js@v1
+        with:
+          command: ${{ inputs.build-command }}
+          working-directory: ${{ inputs.working-directory }}
 
       # ─── stage: test ──────────────────────────────────────────────────────
       - name: test-npm-unit
-        run: ${{ inputs.test-command }}
+        uses: coroboros/ci/.github/actions/test-npm-unit@v1
+        with:
+          command: ${{ inputs.test-command }}
+          working-directory: ${{ inputs.working-directory }}
 
   pack-check:
     name: pack-check
     if: github.event_name == 'pull_request' && inputs.package-dry-run
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v4
 
@@ -95,4 +104,6 @@ jobs:
           node-version: '22'
 
       - name: pack-check
-        run: pnpm publish --dry-run --no-git-checks
+        uses: coroboros/ci/.github/actions/pack-check@v1
+        with:
+          working-directory: ${{ inputs.working-directory }}

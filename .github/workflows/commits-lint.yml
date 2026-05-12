@@ -37,7 +37,8 @@ jobs:
         with:
           node-version: '22'
 
-      - run: |
+      - name: check-commit-messages
+        run: |
           pnpm exec commitlint \
             --from ${{ github.event.pull_request.base.sha }} \
             --to   ${{ github.event.pull_request.head.sha }} \

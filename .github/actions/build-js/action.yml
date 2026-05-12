@@ -1,0 +1,44 @@
+name: build-js
+description: |
+  GitLab `build-js` equivalent — runs the package's build script. Faithful to
+  the GitLab graceful-skip behavior: when `package.json` has no `scripts.build`
+  entry, the step logs and exits 0 instead of failing. Set `skip-if-missing` to
+  `false` to require the script and fail loud when absent.
+
+inputs:
+  command:
+    description: Build command to run.
+    required: false
+    default: pnpm build
+  working-directory:
+    description: Path to the package root.
+    required: false
+    default: '.'
+  skip-if-missing:
+    description: When 'true' (default, GitLab parity), skip the build if `scripts.build` is absent.
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        COMMAND: ${{ inputs.command }}
+        SKIP_IF_MISSING: ${{ inputs.skip-if-missing }}
+      run: |
+        if [ ! -f package.json ]; then
+          echo "::error::package.json not found in $(pwd)"
+          exit 1
+        fi
+        has_build=$(node -p "Boolean(JSON.parse(require('node:fs').readFileSync('package.json','utf8')).scripts && JSON.parse(require('node:fs').readFileSync('package.json','utf8')).scripts.build)")
+        if [ "$has_build" != "true" ]; then
+          if [ "$SKIP_IF_MISSING" = "true" ]; then
+            echo "no 'build' script in package.json — skipped (GitLab parity)"
+            exit 0
+          fi
+          echo "::error::'build' script missing in package.json and skip-if-missing=false"
+          exit 1
+        fi
+        eval "$COMMAND"

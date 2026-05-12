@@ -1,6 +1,6 @@
 {
   "name": "@coroboros/ci",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "private": true,
   "description": "Reusable GitHub Actions workflows and composite actions. npm package CI, OIDC + NPM_TOKEN publish, auto-version release flow, commit-message lint, gitleaks scan.",
   "license": "SEE LICENSE IN LICENSE.md",

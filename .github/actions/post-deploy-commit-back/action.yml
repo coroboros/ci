@@ -1,0 +1,65 @@
+name: post-deploy-commit-back
+description: |
+  Commit and push generated release artifacts (default: `package.json` +
+  `CHANGELOG.md`) back to the default branch as a bot. Warns instead of
+  failing when the push is rejected, so a protected branch does not break the
+  release after the package is already published.
+
+inputs:
+  paths:
+    description: Space-separated paths to stage (resolved from the repo root).
+    required: false
+    default: package.json CHANGELOG.md
+  commit-message:
+    description: Commit message body.
+    required: true
+  default-branch:
+    description: Branch the commit is pushed back to.
+    required: false
+    default: main
+  working-directory:
+    description: Path prefix added to each entry in `paths` (so paths can be package-relative).
+    required: false
+    default: '.'
+  user-name:
+    description: Git user.name for the commit.
+    required: false
+    default: 'github-actions[bot]'
+  user-email:
+    description: Git user.email for the commit.
+    required: false
+    default: '41898282+github-actions[bot]@users.noreply.github.com'
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PATHS: ${{ inputs.paths }}
+        WD: ${{ inputs.working-directory }}
+        MSG: ${{ inputs.commit-message }}
+        BRANCH: ${{ inputs.default-branch }}
+        USER_NAME: ${{ inputs.user-name }}
+        USER_EMAIL: ${{ inputs.user-email }}
+      run: |
+        git config user.name "$USER_NAME"
+        git config user.email "$USER_EMAIL"
+        # shellcheck disable=SC2086
+        set -- $PATHS
+        prefixed=()
+        for p in "$@"; do
+          if [ "$WD" = "." ] || [ -z "$WD" ]; then
+            prefixed+=("$p")
+          else
+            prefixed+=("${WD%/}/$p")
+          fi
+        done
+        git add "${prefixed[@]}"
+        if git diff --staged --quiet; then
+          echo "nothing to commit back"
+          exit 0
+        fi
+        git commit -m "$MSG"
+        if ! git push origin "HEAD:${BRANCH}"; then
+          echo "::warning::failed to push release bump to ${BRANCH} — check branch protection or GITHUB_TOKEN permissions"
+        fi

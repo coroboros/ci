@@ -17,12 +17,14 @@ jobs:
   workflow-lint:
     name: actionlint
     runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: 1.7.12
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run actionlint
+      - name: check-workflow-lint
         run: |
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "${ACTIONLINT_VERSION}"
           ./actionlint -color
 
   smoke-setup-pnpm-node:
@@ -36,5 +38,6 @@ jobs:
           node-version: '22'
           install: 'false'
 
-      - run: node --version && pnpm --version
+      - name: check-tool-versions
+        run: node --version && pnpm --version
         shell: bash

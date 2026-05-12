@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.2.0 - 12/05/2026
+
+### Features
+- Extract every reusable npm-package step into its own composite action under `.github/actions/`: `check-docs`, `check-npm-lint`, `check-npm-typecheck`, `build-js`, `test-npm-unit`, `pack-check`, `deploy-npm-package`, `post-deploy-commit-back`, `post-deploy-github-release`. Future workflows compose from atoms instead of re-inlining bash
+- `build-js` honors GitLab's graceful-skip behavior — when `package.json` has no `scripts.build`, the step exits 0 (`skip-if-missing: true` default)
+- `check-docs` gains optional `require-docs-dir` input for opt-in GitLab npm-packages parity (default `false` — README.md only)
+- `deploy-npm-package` exposes the 4 publish modes (pnpm \| npm × oidc \| token) behind a single composite
+
+### Refactoring
+- `npm-ci.yml` and `npm-publish.yml` rewired onto the new composites — public API (inputs / secrets / outputs) unchanged
+- `commits-lint.yml` — name the previously-anonymous step `check-commit-messages`
+- `secrets-scan.yml` — rename steps to `setup-gitleaks-config`, `setup-gitleaks`, `security-scan-secrets` (`<stage>-<focus>` pattern)
+- `ci.yml` — rename `Run actionlint` → `check-workflow-lint`, name the smoke step `check-tool-versions`
+- `release.yml` — rename `Push floating major (vN) tag` job + step to `deploy-floating-major-alias`
+
+### CI
+- Pin `actionlint` to v1.7.12 (was floating on `main`)
+
+### Documentation
+- `CLAUDE.md` — composite table, factored-architecture rule, strict step-naming policy (every step carries `name:`)
+- `README.md` — composite table, factored-consume example for custom workflows
+- `MIGRATION_GITLAB_CI_TO_GITHUB_ACTIONS.md` — rewritten as faithful GitLab → GHA map. Per-composite map, divergence log extended (D13 `check-docs` README-only default, D14 per-step composite extraction), 1.2.0 wave entry, decommission-criteria status block
+
 ## v1.1.2 - 11/05/2026
 
 ### Documentation

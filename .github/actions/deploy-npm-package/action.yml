@@ -1,0 +1,63 @@
+name: deploy-npm-package
+description: |
+  GitLab `deploy-package` equivalent — publishes the package to the npm
+  registry. Four conditional modes: pnpm|npm × oidc|token. OIDC is the default
+  (npm Trusted Publisher, no `NPM_TOKEN` needed); token mode reads
+  `NODE_AUTH_TOKEN` from the `npm-token` input.
+
+inputs:
+  publish-via:
+    description: CLI to publish with. `pnpm` (default) or `npm`.
+    required: false
+    default: pnpm
+  use-oidc:
+    description: When 'true' (default), publish via npm Trusted Publisher. When 'false', expects `npm-token`.
+    required: false
+    default: 'true'
+  access:
+    description: Package access. `public` (default) or `restricted`.
+    required: false
+    default: public
+  provenance:
+    description: Emit provenance attestation. Implicit with OIDC; flag still respected in `npm`/token mode.
+    required: false
+    default: 'true'
+  working-directory:
+    description: Path to the package root.
+    required: false
+    default: '.'
+  npm-token:
+    description: Required when `use-oidc` is 'false'. Passed to `NODE_AUTH_TOKEN`.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: deploy-package (pnpm / oidc)
+      if: inputs.publish-via == 'pnpm' && inputs.use-oidc == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: pnpm publish --access ${{ inputs.access }} ${{ inputs.provenance == 'true' && '--provenance' || '' }} --no-git-checks
+
+    - name: deploy-package (npm / oidc)
+      if: inputs.publish-via == 'npm' && inputs.use-oidc == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm publish --access ${{ inputs.access }} ${{ inputs.provenance == 'true' && '--provenance' || '' }}
+
+    - name: deploy-package (pnpm / token)
+      if: inputs.publish-via == 'pnpm' && inputs.use-oidc != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.npm-token }}
+      run: pnpm publish --access ${{ inputs.access }} ${{ inputs.provenance == 'true' && '--provenance' || '' }} --no-git-checks
+
+    - name: deploy-package (npm / token)
+      if: inputs.publish-via == 'npm' && inputs.use-oidc != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.npm-token }}
+      run: npm publish --access ${{ inputs.access }} ${{ inputs.provenance == 'true' && '--provenance' || '' }}

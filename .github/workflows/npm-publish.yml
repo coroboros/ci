@@ -43,6 +43,10 @@ on:
         description: Branch the release-bump commit is pushed back to. Only used when `auto-version` is true.
         type: string
         default: main
+      require-docs-dir:
+        description: Require a `docs/` directory in addition to README.md (GitLab npm-packages parity, opt-in).
+        type: boolean
+        default: false
       lint-command:
         type: string
         default: pnpm lint
@@ -68,9 +72,6 @@ jobs:
   publish:
     name: deploy-package (${{ inputs.publish-via }} / ${{ inputs.use-oidc && 'oidc' || 'token' }})
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,21 +85,29 @@ jobs:
 
       # ─── stage: check ─────────────────────────────────────────────────────
       - name: check-docs
-        run: |
-          if [ ! -f README.md ]; then
-            echo "::error::README.md must be present at project root"
-            exit 1
-          fi
+        uses: coroboros/ci/.github/actions/check-docs@v1
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          require-docs-dir: ${{ inputs.require-docs-dir }}
 
       - name: check-npm-lint
-        run: ${{ inputs.lint-command }}
+        uses: coroboros/ci/.github/actions/check-npm-lint@v1
+        with:
+          command: ${{ inputs.lint-command }}
+          working-directory: ${{ inputs.working-directory }}
 
       - name: check-npm-typecheck
-        run: ${{ inputs.typecheck-command }}
+        uses: coroboros/ci/.github/actions/check-npm-typecheck@v1
+        with:
+          command: ${{ inputs.typecheck-command }}
+          working-directory: ${{ inputs.working-directory }}
 
       # ─── stage: build ─────────────────────────────────────────────────────
       - name: build-js
-        run: ${{ inputs.build-command }}
+        uses: coroboros/ci/.github/actions/build-js@v1
+        with:
+          command: ${{ inputs.build-command }}
+          working-directory: ${{ inputs.working-directory }}
 
       - id: build-version
         name: build-version
@@ -123,55 +132,37 @@ jobs:
 
       # ─── stage: test ──────────────────────────────────────────────────────
       - name: test-npm-unit
-        run: ${{ inputs.test-command }}
+        uses: coroboros/ci/.github/actions/test-npm-unit@v1
+        with:
+          command: ${{ inputs.test-command }}
+          working-directory: ${{ inputs.working-directory }}
 
       # ─── stage: deploy ────────────────────────────────────────────────────
-      - name: deploy-package (pnpm / oidc)
-        if: inputs.publish-via == 'pnpm' && inputs.use-oidc
-        run: pnpm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
-
-      - name: deploy-package (npm / oidc)
-        if: inputs.publish-via == 'npm' && inputs.use-oidc
-        run: npm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }}
-
-      - name: deploy-package (pnpm / token)
-        if: inputs.publish-via == 'pnpm' && !inputs.use-oidc
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
-
-      - name: deploy-package (npm / token)
-        if: inputs.publish-via == 'npm' && !inputs.use-oidc
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access ${{ inputs.access }} ${{ inputs.provenance && '--provenance' || '' }}
+      - name: deploy-npm-package
+        uses: coroboros/ci/.github/actions/deploy-npm-package@v1
+        with:
+          publish-via: ${{ inputs.publish-via }}
+          use-oidc: ${{ inputs.use-oidc }}
+          access: ${{ inputs.access }}
+          provenance: ${{ inputs.provenance }}
+          working-directory: ${{ inputs.working-directory }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
 
       # ─── stage: post-deploy ───────────────────────────────────────────────
       - name: post-deploy-commit-back
         if: inputs.auto-version
-        working-directory: ${{ github.workspace }}
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          wd='${{ inputs.working-directory }}'
-          git add "${wd}/package.json" "${wd}/CHANGELOG.md"
-          if git diff --staged --quiet; then
-            echo "Nothing to commit back."
-            exit 0
-          fi
-          git commit -m "chore(release): ${{ github.ref_name }}"
-          if ! git push origin "HEAD:${{ inputs.default-branch }}"; then
-            echo "::warning::Failed to push release bump to ${{ inputs.default-branch }} — check branch protection or GITHUB_TOKEN permissions"
-          fi
+        uses: coroboros/ci/.github/actions/post-deploy-commit-back@v1
+        with:
+          paths: package.json CHANGELOG.md
+          commit-message: 'chore(release): ${{ github.ref_name }}'
+          default-branch: ${{ inputs.default-branch }}
+          working-directory: ${{ inputs.working-directory }}
 
       - name: post-deploy-github-release
         if: inputs.auto-version
-        working-directory: ${{ github.workspace }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NOTES: ${{ steps.build-changelog.outputs.body }}
-        run: |
-          printf '%s\n' "$NOTES" > /tmp/release-notes.md
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
-            --notes-file /tmp/release-notes.md
+        uses: coroboros/ci/.github/actions/post-deploy-github-release@v1
+        with:
+          tag: ${{ github.ref_name }}
+          title: ${{ github.ref_name }}
+          notes: ${{ steps.build-changelog.outputs.body }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

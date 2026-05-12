@@ -7,7 +7,7 @@
 
 **Reusable CI for Coroboros.**
 
-GitHub Actions workflows and composite actions. Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v1`.
+GitHub Actions workflows and composite actions. Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v1`, or compose your own pipeline from the per-step composites under `.github/actions/`.
 
 [![visibility](https://img.shields.io/badge/visibility-internal-000000?style=flat-square)](https://github.com/coroboros)
 [![latest](https://img.shields.io/badge/latest-v1-000000?style=flat-square)](CHANGELOG.md)
@@ -17,6 +17,7 @@ GitHub Actions workflows and composite actions. Drop into any `@coroboros/*` rep
 </div>
 
 - [Workflows](#workflows)
+- [Composites](#composites)
 - [Consume](#consume)
 - [Release flow](#release-flow)
 - [License](#license)
@@ -28,15 +29,39 @@ GitHub Actions workflows and composite actions. Drop into any `@coroboros/*` rep
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `npm-ci.yml` | PR / push | Matrix verify: `check-docs` → `check-npm-lint` → `check-npm-typecheck` → `build-js` → `test-npm-unit`. PR-only `pack-check` (`pnpm publish --dry-run`). |
-| `npm-publish.yml` | Tag push | `build-version` (bump from tag) → `build-changelog` (Conventional Commits) → `deploy-package` → `post-deploy-commit-back` → `post-deploy-github-release`. Set `auto-version: false` for the verify-only fallback. |
+| `npm-publish.yml` | Tag push | `build-version` (bump from tag) → `build-changelog` (Conventional Commits) → `deploy-npm-package` → `post-deploy-commit-back` → `post-deploy-github-release`. Set `auto-version: false` for the verify-only fallback. |
 | `commits-lint.yml` | PR | Conventional Commits lint over the PR commit range. |
 | `secrets-scan.yml` | PR / push | gitleaks against the canonical `.gitleaks.toml`. |
 
-Composites: `setup-pnpm-node`, `bump-version-from-tag`, `generate-changelog`, `verify-tag-version`. Inputs and secrets live at the top of each YAML.
+Inputs and secrets live at the top of each YAML.
+
+---
+
+## Composites
+
+Every reusable step is a composite under `.github/actions/<name>`. Import them individually to build custom workflows (node-service, javascript-image, anything that doesn't fit the prebuilt npm-package shape).
+
+| Composite | GitLab analogue | Inputs (key ones) |
+|---|---|---|
+| `setup-pnpm-node` | `setup-npmrc` + image | `node-version`, `registry-url`, `install` |
+| `check-docs` | `check-docs` | `working-directory`, `require-docs-dir` |
+| `check-npm-lint` | `check-npm-lint` | `command`, `working-directory` |
+| `check-npm-typecheck` | (added) | `command`, `working-directory` |
+| `build-js` | `build-js` | `command`, `working-directory`, `skip-if-missing` |
+| `bump-version-from-tag` | `build-version` | `working-directory` → output `version` |
+| `verify-tag-version` | (verify-only path) | `working-directory` |
+| `generate-changelog` | (added) | `version`, `working-directory` → output `body` |
+| `test-npm-unit` | `test-npm-unit` | `command`, `working-directory` |
+| `pack-check` | (added) | `publish-via`, `working-directory` |
+| `deploy-npm-package` | `deploy-package` | `publish-via`, `use-oidc`, `access`, `provenance`, `npm-token` |
+| `post-deploy-commit-back` | (added) | `paths`, `commit-message`, `default-branch` |
+| `post-deploy-github-release` | (added) | `tag`, `title`, `notes`, `github-token` |
 
 ---
 
 ## Consume
+
+### Drop-in: prebuilt workflows
 
 ```yaml
 # .github/workflows/ci.yml
@@ -74,6 +99,23 @@ jobs:
 OIDC: configure the Trusted Publisher on npmjs.com pointing at `<your-repo>/release.yml` before the first tag push.
 
 Worked examples: [`examples/oidc-npm-package/`](examples/oidc-npm-package), [`examples/token-npm-package/`](examples/token-npm-package).
+
+### Compose your own
+
+```yaml
+# .github/workflows/custom.yml
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: coroboros/ci/.github/actions/setup-pnpm-node@v1
+        with: { node-version: '22' }
+      - uses: coroboros/ci/.github/actions/check-docs@v1
+      - uses: coroboros/ci/.github/actions/check-npm-lint@v1
+      - uses: coroboros/ci/.github/actions/build-js@v1
+      # … your own Docker build / image push steps
+```
 
 ---
 

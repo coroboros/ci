@@ -1,0 +1,21 @@
+name: check-npm-typecheck
+description: |
+  TypeScript typecheck step. No GitLab analogue — added because Coroboros is
+  TypeScript-strict by default. Slots into the `check` stage after lint.
+
+inputs:
+  command:
+    description: Typecheck command to run.
+    required: false
+    default: pnpm typecheck
+  working-directory:
+    description: Path to the package root.
+    required: false
+    default: '.'
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: ${{ inputs.command }}
