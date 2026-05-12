@@ -1,0 +1,119 @@
+# Pipeline: check-readme -> build-image-name -> publish-image (Kaniko) -> notify.
+# `publish-image` runs in the Kaniko :debug container.
+name: Container Image CI
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile-path:
+        type: string
+        required: false
+        default: Dockerfile
+      image-target:
+        type: string
+        required: false
+        default: ""
+      image-tag:
+        type: string
+        required: false
+        default: ""
+      image-build-args:
+        type: string
+        required: false
+        default: ""
+      image-registry-mirror:
+        type: string
+        required: false
+        default: ""
+      release-branch-pattern:
+        type: string
+        required: false
+        default: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+      release-source-commit-pattern:
+        type: string
+        required: false
+        default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'master'"
+    secrets:
+      IMAGE_REGISTRY:
+        required: true
+      IMAGE_REGISTRY_USER:
+        required: true
+      IMAGE_REGISTRY_PASSWORD:
+        required: true
+      IMAGE_CACHE_REPO:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+      GOOGLE_CHAT_WEBHOOK_URL:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  check-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/check-readme@v0
+
+  build-image-name:
+    runs-on: ubuntu-latest
+    needs: [check-readme]
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+      image-name: ${{ steps.name.outputs.image-name }}
+      image-tag: ${{ steps.name.outputs.image-tag }}
+      image-ref-tag: ${{ steps.name.outputs.image-ref-tag }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Detect Dockerfile presence
+        id: dockerfile
+        shell: bash
+        run: |
+          if [ -f Dockerfile ] || find . -name Dockerfile -not -path './node_modules/*' -print -quit | grep -q . ; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+            echo "::warning::No Dockerfile found — skipping container build."
+          fi
+      - id: name
+        if: ${{ steps.dockerfile.outputs.exists == 'true' }}
+        uses: coroboros/ci/.github/actions/build-image-name@v0
+        with:
+          image-registry: ${{ secrets.IMAGE_REGISTRY }}
+          image-target: ${{ inputs.image-target }}
+          image-tag: ${{ inputs.image-tag }}
+
+  publish-image:
+    runs-on: ubuntu-latest
+    needs: [build-image-name]
+    if: ${{ needs.build-image-name.outputs.image != '' }}
+    container:
+      image: gcr.io/kaniko-project/executor:debug
+      options: --user 0
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/publish-image@v0
+        with:
+          dockerfile-path: ${{ inputs.dockerfile-path }}
+          image-build-args: ${{ inputs.image-build-args }}
+          image-cache-repo: ${{ secrets.IMAGE_CACHE_REPO }}
+          image-registry: ${{ secrets.IMAGE_REGISTRY }}
+          image-registry-user: ${{ secrets.IMAGE_REGISTRY_USER }}
+          image-registry-password: ${{ secrets.IMAGE_REGISTRY_PASSWORD }}
+          image-registry-mirror: ${{ inputs.image-registry-mirror }}
+          image: ${{ needs.build-image-name.outputs.image }}
+          image-name: ${{ needs.build-image-name.outputs.image-name }}
+          image-ref-tag: ${{ needs.build-image-name.outputs.image-ref-tag }}
+
+  notify:
+    needs: [publish-image]
+    if: always() && needs.publish-image.result != 'skipped'
+    uses: coroboros/ci/.github/workflows/notify.yml@v0
+    with:
+      release-branch-pattern: ${{ inputs.release-branch-pattern }}
+      release-source-commit-pattern: ${{ inputs.release-source-commit-pattern }}
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}

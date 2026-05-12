@@ -1,0 +1,103 @@
+# Kaniko build — the action expects to be invoked inside a job that uses
+# `container: image: gcr.io/kaniko-project/executor:debug` so /kaniko/* is available.
+name: Publish container image (Kaniko)
+description: Build and push the image with Kaniko to both the SHA tag and the ref tag.
+
+inputs:
+  dockerfile-path:
+    description: Dockerfile path relative to the repo root.
+    required: false
+    default: Dockerfile
+  image-build-args:
+    description: Build args passed to Kaniko (e.g. `--build-arg FOO=bar`).
+    required: false
+    default: ""
+  image-cache-repo:
+    description: Repository for Kaniko's layer cache.
+    required: true
+  image-registry:
+    description: Container registry hostname.
+    required: true
+  image-registry-mirror:
+    description: Additional registry mirror flag, e.g. `--registry-mirror https://my-mirror`.
+    required: false
+    default: ""
+  image-registry-user:
+    description: Container registry user.
+    required: true
+  image-registry-password:
+    description: Container registry password.
+    required: true
+  image:
+    description: Full image URI from build-image-name (registry/target/repo:sha).
+    required: true
+  image-name:
+    description: Image name (no tag) from build-image-name.
+    required: true
+  image-ref-tag:
+    description: Reference-based tag from build-image-name.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Echo inputs
+      shell: sh
+      env:
+        DOCKERFILE_PATH: ${{ inputs.dockerfile-path }}
+        IMAGE: ${{ inputs.image }}
+        IMAGE_BUILD_ARGS: ${{ inputs.image-build-args }}
+        IMAGE_REGISTRY: ${{ inputs.image-registry }}
+        IMAGE_REGISTRY_USER: ${{ inputs.image-registry-user }}
+        IMAGE_TAG: ${{ inputs.image }}
+      run: |
+        echo "DOCKERFILE_PATH       | ${DOCKERFILE_PATH}"
+        echo "IMAGE                 | ${IMAGE}"
+        echo "IMAGE_BUILD_ARGS      | ${IMAGE_BUILD_ARGS}"
+        echo "IMAGE_REGISTRY        | ${IMAGE_REGISTRY}"
+        echo "IMAGE_REGISTRY_USER   | ${IMAGE_REGISTRY_USER}"
+        echo "IMAGE_TAG             | ${IMAGE_TAG}"
+
+    - name: Build and push with Kaniko
+      shell: sh
+      env:
+        DOCKERFILE_PATH: ${{ inputs.dockerfile-path }}
+        IMAGE: ${{ inputs.image }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        IMAGE_REF_TAG: ${{ inputs.image-ref-tag }}
+        IMAGE_BUILD_ARGS: ${{ inputs.image-build-args }}
+        IMAGE_CACHE_REPO: ${{ inputs.image-cache-repo }}
+        IMAGE_REGISTRY: ${{ inputs.image-registry }}
+        IMAGE_REGISTRY_USER: ${{ inputs.image-registry-user }}
+        IMAGE_REGISTRY_PASSWORD: ${{ inputs.image-registry-password }}
+        IMAGE_REGISTRY_MIRROR: ${{ inputs.image-registry-mirror }}
+      run: |
+        # Change to Dockerfile directory if not in root.
+        if [ "${DOCKERFILE_PATH}" != "Dockerfile" ]; then
+          cd "$(dirname "${DOCKERFILE_PATH:-.}")" || (echo "unable to change directory for Dockerfile path ${DOCKERFILE_PATH}" && exit 1)
+        fi
+
+        # Push to both SHA tag and ref tag.
+        IMAGE_DESTINATIONS="--destination ${IMAGE} --destination ${IMAGE_NAME}:${IMAGE_REF_TAG}"
+
+        # Setup Kaniko credentials.
+        mkdir -p /kaniko/.docker
+        auth_b64="$(printf "%s:%s" "${IMAGE_REGISTRY_USER}" "${IMAGE_REGISTRY_PASSWORD}" | base64 | tr -d '\n')"
+        printf '{"auths":{"%s":{"auth":"%s"}}}' "${IMAGE_REGISTRY}" "${auth_b64}" > /kaniko/.docker/config.json
+
+        build_and_publish="/kaniko/executor
+          --context .
+          --cache=true
+          --cache-repo=${IMAGE_CACHE_REPO}
+          ${IMAGE_REGISTRY_MIRROR}
+          --registry-mirror mirror.gcr.io
+          --registry-mirror index.docker.io
+          --snapshot-mode=redo
+          --use-new-run
+          ${IMAGE_BUILD_ARGS}
+          ${IMAGE_DESTINATIONS}"
+
+        # Strip newlines/tabs so the multi-line command becomes a single eval-safe string.
+        cmd="$(printf '%s' "${build_and_publish}" | tr -d '\t\r\n')"
+        echo "${cmd}"
+        eval "${cmd}"

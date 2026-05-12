@@ -1,0 +1,26 @@
+# Changelog
+
+## v0.1.0 - 12/05/2026
+
+### Features
+- Initial release — six entry-point reusable workflows (`javascript-npm-package`, `javascript-image`, `javascript-assets`, `javascript-function`, `container-image`, `node-service`), two sub-workflows (`security`, `notify`), and seventeen composite actions under `.github/actions/`.
+- JS composite actions and reusable workflows run on **pnpm** (resolved via `corepack` from the consumer's `package.json packageManager` field). Node default 22.
+- Added `pnpm publish --provenance --no-git-checks` with OIDC Trusted Publisher as the primary path; `NPM_TOKEN` auto-detected as fallback when provided.
+- Supply-chain hardening baseline: `pnpm install --frozen-lockfile --ignore-scripts` on every install (`--prod` for production-only installs), per-job secret isolation, no `secrets: inherit` anywhere. `--frozen-lockfile` is the integrity check that gates every install.
+- Added `security.yml` reusable workflow backed by `security/.gitleaks.toml` — invokes the upstream `gitleaks` CLI directly (pinned `v8.30.1`) instead of `gitleaks/gitleaks-action@v2`, which is paid for GitHub organizations. Inputs: `config-path`, `gitleaks-version`, `scan-mode` (`git` / `dir`), `fail-on-leak`.
+- Added self-CI workflows `ci.yml` (`actionlint`, `yamllint`, `shellcheck`) and `ci-security.yml`.
+
+### Configuration
+- `.gitleaks.toml` lives at `security/.gitleaks.toml`. Canonical raw URL: `https://raw.githubusercontent.com/coroboros/ci/main/security/.gitleaks.toml`.
+- Added `.yamllint`.
+- Self-CI hardening: `ci.yml` installs `actionlint` from the pinned release tarball with SHA-256 verification (no `curl | bash`); `yamllint` pinned to `1.38.0`; `ludeeus/action-shellcheck` pinned to commit SHA `00cae500b08a931fb5698e11e79bfbd38e612a38` (v2.0.0). `security.yml` accepts a `gitleaks-sha256` input to verify the gitleaks tarball end-to-end.
+- Third-party actions across the reusable workflows + composite actions SHA-pinned: `actions/checkout`, `setup-node`, `upload-artifact`, `download-artifact`, `cache`, `aws-actions/configure-aws-credentials`. Each ref carries an inline `# v4` comment.
+- `ghcr.io` documented as the default container registry — no static `IMAGE_REGISTRY_PASSWORD`, pass `github.actor` + `secrets.GITHUB_TOKEN` with `permissions: packages: write`.
+- AWS OIDC — `aws-credentials` composite action assumes an IAM role via `aws-actions/configure-aws-credentials` when `aws-role-dev` / `aws-role-prod` ARNs are provided. Static `AWS_ACCESS_KEY_ID_*` / `AWS_SECRET_ACCESS_KEY_*` remain as fallback. `javascript-assets.yml` and `javascript-function.yml` expose the role ARNs as inputs; deploy / invoke jobs declare `permissions: id-token: write` for the OIDC handshake.
+
+### Documentation
+- Added `docs/usage.md` with consumer wire-up examples per workflow.
+- Added `docs/environment-variables.md` with the full secrets / inputs catalog (organized by scope).
+- Added `docs/flow.md` (branch model, trigger semantics) and `docs/stages.md` (ten-stage conceptual pipeline).
+- Added `docs/security.md` documenting the supply-chain baseline.
+- Wrote `README.md` around the composable workflow + composite-action model.

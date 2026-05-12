@@ -1,0 +1,27 @@
+# Calls `aws cloudfront create-invalidation`. AWS credentials must be set in env
+# before this action runs (see `aws-credentials` action).
+name: CDN cache invalidation
+description: aws cloudfront create-invalidation on the given paths.
+
+inputs:
+  cdn-id:
+    description: CloudFront distribution ID.
+    required: true
+  cdn-invalidate-paths:
+    description: Paths to invalidate.
+    required: false
+    default: "/*"
+
+runs:
+  using: composite
+  steps:
+    - name: Invalidate CloudFront cache
+      shell: bash
+      env:
+        CDN_ID: ${{ inputs.cdn-id }}
+        CDN_INVALIDATE_PATHS: ${{ inputs.cdn-invalidate-paths }}
+      run: |
+        invalidate_cache="aws cloudfront create-invalidation --distribution-id ${CDN_ID} --paths ${CDN_INVALIDATE_PATHS:-/*}"
+        echo "${invalidate_cache}"
+        cmd="$(printf '%s' "${invalidate_cache}" | tr -d '\t\r\n')"
+        eval "${cmd}"

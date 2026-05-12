@@ -1,0 +1,10 @@
+.DS_Store
+.claude/settings.local.json
+.claude/output/
+CLAUDE.local.md
+node_modules/
+*.log
+*.bak
+.actionlint-cache/
+.github-temp/
+.claude

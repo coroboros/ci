@@ -1,0 +1,128 @@
+# Two auth modes:
+#   - OIDC (default when aws-role-* inputs are set) — assumes an IAM role via
+#     aws-actions/configure-aws-credentials.
+#   - Static keys (fallback) — exports AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+#     with branch -> account routing (dev-branch -> dev keys, prod-branch -> prod keys).
+name: AWS credentials
+description: Set up AWS credentials via OIDC role assumption (default) or static-key fallback.
+
+inputs:
+  aws-region:
+    description: Default AWS region for the assumed session.
+    required: false
+    default: us-east-1
+  dev-branch:
+    description: Branch name that maps to the DEV AWS account.
+    required: false
+    default: develop
+  prod-branch:
+    description: Branch name that maps to the PROD AWS account.
+    required: false
+    default: master
+
+  # OIDC mode inputs
+  aws-role-dev:
+    description: IAM role ARN to assume for the dev account (OIDC).
+    required: false
+    default: ""
+  aws-role-prod:
+    description: IAM role ARN to assume for the prod account (OIDC).
+    required: false
+    default: ""
+  aws-role-session-name:
+    description: Session name used by AWS STS for the assumed role.
+    required: false
+    default: gha-${{ github.repository_owner }}-${{ github.run_id }}
+
+  # Static-key fallback inputs (used when no role ARN is provided)
+  aws-access-key-id-dev:
+    description: AWS access key ID for the dev account (static fallback).
+    required: false
+    default: ""
+  aws-secret-access-key-dev:
+    description: AWS secret access key for the dev account (static fallback).
+    required: false
+    default: ""
+  aws-access-key-id-prod:
+    description: AWS access key ID for the prod account (static fallback).
+    required: false
+    default: ""
+  aws-secret-access-key-prod:
+    description: AWS secret access key for the prod account (static fallback).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Pick AWS auth target
+      id: pick
+      shell: bash
+      env:
+        DEV_BRANCH: ${{ inputs.dev-branch }}
+        PROD_BRANCH: ${{ inputs.prod-branch }}
+        ROLE_DEV: ${{ inputs.aws-role-dev }}
+        ROLE_PROD: ${{ inputs.aws-role-prod }}
+        AK_DEV: ${{ inputs.aws-access-key-id-dev }}
+        SK_DEV: ${{ inputs.aws-secret-access-key-dev }}
+        AK_PROD: ${{ inputs.aws-access-key-id-prod }}
+        SK_PROD: ${{ inputs.aws-secret-access-key-prod }}
+      run: |
+        role=""
+        access_key=""
+        secret_key=""
+
+        if [ "${GITHUB_REF_NAME}" = "${DEV_BRANCH}" ]; then
+          role="${ROLE_DEV}"
+          access_key="${AK_DEV}"
+          secret_key="${SK_DEV}"
+        elif [ "${GITHUB_REF_NAME}" = "${PROD_BRANCH}" ]; then
+          role="${ROLE_PROD}"
+          access_key="${AK_PROD}"
+          secret_key="${SK_PROD}"
+        fi
+
+        if [ -n "${role}" ]; then
+          mode="oidc"
+        elif [ -n "${access_key}" ] && [ -n "${secret_key}" ]; then
+          mode="static"
+        else
+          echo "::error::No AWS credentials for ${GITHUB_REF_NAME}. Pass aws-role-<env> for OIDC or aws-access-key-id-<env> + aws-secret-access-key-<env> for the static fallback."
+          exit 1
+        fi
+
+        echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+        echo "role=${role}" >> "${GITHUB_OUTPUT}"
+        # Mask the static fallback secrets in the workflow log.
+        if [ -n "${access_key}" ]; then echo "::add-mask::${access_key}"; fi
+        if [ -n "${secret_key}" ]; then echo "::add-mask::${secret_key}"; fi
+        {
+          echo "AWS_ACCESS_KEY_ID_RESOLVED<<__EOF__"
+          echo "${access_key}"
+          echo "__EOF__"
+          echo "AWS_SECRET_ACCESS_KEY_RESOLVED<<__EOF__"
+          echo "${secret_key}"
+          echo "__EOF__"
+        } >> "${GITHUB_ENV}"
+        echo "Selected AWS auth mode: ${mode}"
+
+    - name: Assume role via OIDC
+      if: ${{ steps.pick.outputs.mode == 'oidc' }}
+      uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c  # v4
+      with:
+        role-to-assume: ${{ steps.pick.outputs.role }}
+        role-session-name: ${{ inputs.aws-role-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Export static credentials (fallback)
+      if: ${{ steps.pick.outputs.mode == 'static' }}
+      shell: bash
+      env:
+        AWS_REGION_INPUT: ${{ inputs.aws-region }}
+      run: |
+        {
+          echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID_RESOLVED}"
+          echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY_RESOLVED}"
+          echo "AWS_DEFAULT_REGION=${AWS_REGION_INPUT}"
+        } >> "${GITHUB_ENV}"
+        echo "Exported static AWS credentials for ${GITHUB_REF_NAME}"

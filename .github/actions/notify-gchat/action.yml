@@ -1,0 +1,73 @@
+name: Notify Google Chat
+description: Post a deployment notification to a Google Chat webhook.
+
+inputs:
+  google-chat-webhook-url:
+    description: Google Chat webhook URL.
+    required: true
+  release-branch-pattern:
+    description: ERE pattern for release branches.
+    required: false
+    default: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+  release-source-commit-pattern:
+    description: ERE pattern for release-source merge commit message.
+    required: false
+    default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'master'"
+
+runs:
+  using: composite
+  steps:
+    - name: Echo env
+      shell: bash
+      env:
+        GOOGLE_CHAT_WEBHOOK_URL: ${{ inputs.google-chat-webhook-url }}
+      run: |
+        echo "GOOGLE_CHAT_WEBHOOK_URL  | $(echo "${GOOGLE_CHAT_WEBHOOK_URL}" | head -c 32)..."
+        echo "CI_SERVER_URL            | ${GITHUB_SERVER_URL}"
+        echo "GITLAB_USER_NAME         | ${GITHUB_ACTOR}"
+
+    - name: Post to Google Chat
+      shell: bash
+      env:
+        GOOGLE_CHAT_WEBHOOK_URL: ${{ inputs.google-chat-webhook-url }}
+        RELEASE_BRANCH_PATTERN: ${{ inputs.release-branch-pattern }}
+        RELEASE_SOURCE_BRANCH_COMMIT_PATTERN: ${{ inputs.release-source-commit-pattern }}
+        CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+        CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        CI_PROJECT_PATH: ${{ github.repository }}
+        CI_PROJECT_NAME: ${{ github.event.repository.name }}
+        CI_SERVER_URL: ${{ github.server_url }}
+        GITLAB_USER_NAME: ${{ github.actor }}
+      run: |
+        if [[ "${CI_COMMIT_REF_NAME}" =~ $RELEASE_BRANCH_PATTERN ]]; then
+          ref="${BASH_REMATCH[1]} -> int"
+        elif [[ "${CI_COMMIT_MESSAGE}" =~ $RELEASE_SOURCE_BRANCH_COMMIT_PATTERN ]]; then
+          ref="${BASH_REMATCH[1]} -> prod"
+        else
+          ref="${CI_COMMIT_REF_NAME}"
+        fi
+        echo "Notification reference is ${ref}"
+
+        project_url="${CI_SERVER_URL}/${CI_PROJECT_PATH}"
+
+        payload="$(jq -nc \
+          --arg project "${CI_PROJECT_PATH}" \
+          --arg ref "${ref}" \
+          --arg author "${GITLAB_USER_NAME}" \
+          --arg url "${project_url}" \
+          '{
+            cards: [{
+              header: { title: $project },
+              sections: [{
+                widgets: [
+                  { keyValue: { topLabel: "Ref",    content: $ref } },
+                  { keyValue: { topLabel: "Author", content: $author } },
+                  { buttons: [{ textButton: { text: "View project", onClick: { openLink: { url: $url } } } }] }
+                ]
+              }]
+            }]
+          }')"
+
+        curl -sS -X POST "${GOOGLE_CHAT_WEBHOOK_URL}&threadKey=${CI_PROJECT_NAME}" \
+          --header "Content-Type: application/json; charset=utf-8" \
+          --data "${payload}"

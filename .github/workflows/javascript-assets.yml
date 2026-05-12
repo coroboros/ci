@@ -1,0 +1,214 @@
+# Pipeline: check -> setup-npmrc -> lint -> build-js (strict) -> test -> deploy-assets -> cdn-invalidate -> notify.
+# `build-js` uses require-build=true — fails if package.json has no scripts.build.
+# AWS auth: OIDC (when `aws-role-*` inputs are set) with static-key fallback.
+name: JavaScript Assets CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        required: false
+        default: "22"
+      assets-path:
+        type: string
+        required: false
+        default: dist
+      assets-region:
+        type: string
+        required: false
+        default: us-east-1
+      assets-options:
+        type: string
+        required: false
+        default: '--exclude "*.DS_Store" --cache-control "max-age=31536000"'
+      cdn-invalidate-cache:
+        type: string
+        required: false
+        default: "false"
+      cdn-invalidate-paths:
+        type: string
+        required: false
+        default: "/*"
+      release-branch-pattern:
+        type: string
+        required: false
+        default: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+      release-source-commit-pattern:
+        type: string
+        required: false
+        default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'master'"
+      dev-branch:
+        type: string
+        required: false
+        default: develop
+      prod-branch:
+        type: string
+        required: false
+        default: master
+      aws-role-dev:
+        description: IAM role ARN to assume for the dev account (OIDC). Leave empty to fall back to AWS_ACCESS_KEY_ID_DEV / AWS_SECRET_ACCESS_KEY_DEV.
+        type: string
+        required: false
+        default: ""
+      aws-role-prod:
+        description: IAM role ARN to assume for the prod account (OIDC). Leave empty to fall back to AWS_ACCESS_KEY_ID_PROD / AWS_SECRET_ACCESS_KEY_PROD.
+        type: string
+        required: false
+        default: ""
+      npm-extra-config:
+        type: string
+        required: false
+        default: ""
+    secrets:
+      NPM_CONFIG_FILE:
+        required: true
+      NPM_PACKAGE_REGISTRY:
+        required: true
+      NPM_PACKAGE_PROXY_REGISTRY:
+        required: true
+      NPM_PACKAGE_REGISTRY_TOKEN:
+        required: true
+      AWS_ACCESS_KEY_ID_DEV:
+        required: false
+      AWS_SECRET_ACCESS_KEY_DEV:
+        required: false
+      AWS_ACCESS_KEY_ID_PROD:
+        required: false
+      AWS_SECRET_ACCESS_KEY_PROD:
+        required: false
+      ASSETS_DESTINATION:
+        required: true
+      CDN_ID:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+      GOOGLE_CHAT_WEBHOOK_URL:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  check-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/check-readme@v0
+
+  setup-npmrc:
+    runs-on: ubuntu-latest
+    needs: [check-readme]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/setup-npmrc@v0
+        with:
+          npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
+          npm-extra-config: ${{ inputs.npm-extra-config }}
+
+  check-npm-lint:
+    runs-on: ubuntu-latest
+    needs: [setup-npmrc]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/pnpm-install@v0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - run: pnpm run lint
+        shell: bash
+
+  build-js:
+    runs-on: ubuntu-latest
+    needs: [setup-npmrc]
+    # Source override: only on develop / master / tag.
+    if: |
+      github.ref_name == 'develop'
+      || github.ref_name == 'master'
+      || github.ref_type == 'tag'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/build-js@v0
+        with:
+          require-build: "true"
+          node-version: ${{ inputs.node-version }}
+
+  test-npm-unit:
+    runs-on: ubuntu-latest
+    needs: [setup-npmrc]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/pnpm-install@v0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - run: pnpm test
+        shell: bash
+
+  deploy-assets:
+    runs-on: ubuntu-latest
+    needs: [build-js, test-npm-unit]
+    if: |
+      github.ref_name == 'develop' || github.ref_name == 'master'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: dist
+          path: ${{ inputs.assets-path }}
+      - uses: coroboros/ci/.github/actions/aws-credentials@v0
+        with:
+          aws-region: ${{ inputs.assets-region }}
+          dev-branch: ${{ inputs.dev-branch }}
+          prod-branch: ${{ inputs.prod-branch }}
+          aws-role-dev: ${{ inputs.aws-role-dev }}
+          aws-role-prod: ${{ inputs.aws-role-prod }}
+          aws-access-key-id-dev: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key-dev: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-access-key-id-prod: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key-prod: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+      - uses: coroboros/ci/.github/actions/deploy-assets@v0
+        with:
+          assets-path: ${{ inputs.assets-path }}
+          assets-destination: ${{ secrets.ASSETS_DESTINATION }}
+          assets-region: ${{ inputs.assets-region }}
+          assets-options: ${{ inputs.assets-options }}
+
+  cdn-invalidate:
+    runs-on: ubuntu-latest
+    needs: [deploy-assets]
+    if: |
+      (inputs.cdn-invalidate-cache == 'true' || inputs.cdn-invalidate-cache == '1')
+      && (github.ref_name == 'develop' || github.ref_name == 'master')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/aws-credentials@v0
+        with:
+          aws-region: ${{ inputs.assets-region }}
+          dev-branch: ${{ inputs.dev-branch }}
+          prod-branch: ${{ inputs.prod-branch }}
+          aws-role-dev: ${{ inputs.aws-role-dev }}
+          aws-role-prod: ${{ inputs.aws-role-prod }}
+          aws-access-key-id-dev: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key-dev: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-access-key-id-prod: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key-prod: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+      - uses: coroboros/ci/.github/actions/cdn-invalidate@v0
+        with:
+          cdn-id: ${{ secrets.CDN_ID }}
+          cdn-invalidate-paths: ${{ inputs.cdn-invalidate-paths }}
+
+  notify:
+    needs: [deploy-assets]
+    if: always() && needs.deploy-assets.result != 'skipped'
+    uses: coroboros/ci/.github/workflows/notify.yml@v0
+    with:
+      release-branch-pattern: ${{ inputs.release-branch-pattern }}
+      release-source-commit-pattern: ${{ inputs.release-source-commit-pattern }}
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}

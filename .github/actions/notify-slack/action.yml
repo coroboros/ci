@@ -1,0 +1,71 @@
+name: Notify Slack
+description: Post a deployment notification to a Slack webhook.
+
+inputs:
+  slack-webhook-url:
+    description: Slack webhook URL.
+    required: true
+  release-branch-pattern:
+    description: ERE pattern for release branches.
+    required: false
+    default: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+  release-source-commit-pattern:
+    description: ERE pattern for release-source merge commit message.
+    required: false
+    default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'master'"
+
+runs:
+  using: composite
+  steps:
+    - name: Echo env
+      shell: bash
+      env:
+        SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook-url }}
+      run: |
+        echo "SLACK_WEBHOOK_URL  | $(echo "${SLACK_WEBHOOK_URL}" | head -c 32)..."
+        echo "CI_SERVER_URL      | ${GITHUB_SERVER_URL}"
+        echo "GITLAB_USER_NAME   | ${GITHUB_ACTOR}"
+
+    - name: Post to Slack
+      shell: bash
+      env:
+        SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook-url }}
+        RELEASE_BRANCH_PATTERN: ${{ inputs.release-branch-pattern }}
+        RELEASE_SOURCE_BRANCH_COMMIT_PATTERN: ${{ inputs.release-source-commit-pattern }}
+        CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+        CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        CI_PROJECT_PATH: ${{ github.repository }}
+        CI_PROJECT_NAME: ${{ github.event.repository.name }}
+        CI_SERVER_URL: ${{ github.server_url }}
+        GITLAB_USER_NAME: ${{ github.actor }}
+      run: |
+        if [[ "${CI_COMMIT_REF_NAME}" =~ $RELEASE_BRANCH_PATTERN ]]; then
+          ref="${BASH_REMATCH[1]} -> int"
+        elif [[ "${CI_COMMIT_MESSAGE}" =~ $RELEASE_SOURCE_BRANCH_COMMIT_PATTERN ]]; then
+          ref="${BASH_REMATCH[1]} -> prod"
+        else
+          ref="${CI_COMMIT_REF_NAME}"
+        fi
+        echo "Notification reference is ${ref}"
+
+        project_url="${CI_SERVER_URL}/${CI_PROJECT_PATH}"
+
+        payload="$(jq -nc \
+          --arg project "${CI_PROJECT_PATH}" \
+          --arg ref "${ref}" \
+          --arg author "${GITLAB_USER_NAME}" \
+          --arg url "${project_url}" \
+          '{
+            blocks: [
+              { type: "header", text: { type: "plain_text", text: $project } },
+              { type: "section", fields: [
+                { type: "mrkdwn", text: ("*Ref*\n" + $ref) },
+                { type: "mrkdwn", text: ("*Author*\n" + $author) }
+              ]},
+              { type: "section", text: { type: "mrkdwn", text: ("<" + $url + "|View project>") } }
+            ]
+          }')"
+
+        curl -sS -X POST "${SLACK_WEBHOOK_URL}" \
+          --header "Content-Type: application/json; charset=utf-8" \
+          --data "${payload}"
