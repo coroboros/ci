@@ -86,19 +86,19 @@ Each composite action under `.github/actions/` is a single pipeline step. Use th
 
 ### Stages
 
-[`docs/stages.md`](docs/stages.md) — ten-stage conceptual pipeline.
+[`docs/stages.md`](docs/stages.md)
 
 ### Flow
 
-[`docs/flow.md`](docs/flow.md) — branch model and trigger semantics.
+[`docs/flow.md`](docs/flow.md)
 
 ### Environment Variables
 
-[`docs/environment-variables.md`](docs/environment-variables.md) — full secret / input catalog.
+[`docs/environment-variables.md`](docs/environment-variables.md)
 
 ### Examples
 
-[`docs/examples.md`](docs/examples.md) — consumer wire-up examples per workflow.
+[`docs/examples.md`](docs/examples.md)
 
 ## Security
 

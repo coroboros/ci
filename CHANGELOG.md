@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.4 - 12/05/2026
+
+### Documentation
+- README: dropped the inline descriptions under `## Usage` subsections — link only.
+
 ## v0.1.3 - 12/05/2026
 
 ### Documentation

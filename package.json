@@ -1,6 +1,6 @@
 {
   "name": "@coroboros/ci",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "GitHub Actions workflows and composite actions.",
   "license": "SEE LICENSE IN LICENSE.md",
