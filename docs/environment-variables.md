@@ -19,12 +19,11 @@ Each variable below is passed either as a **secret** (`secrets:` block on `workf
 
 | name | type | description | required | default |
 | :--- | :--- | :---------- | :------- | :------ |
-| `provenance` | input (bool) | When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` when only `NPM_TOKEN` is available. | | `true` |
+| `provenance` | input (bool) | When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` to fall back to publishing with `NPM_PACKAGE_REGISTRY_TOKEN` as `NODE_AUTH_TOKEN`. | | `true` |
 | `NPM_CONFIG_FILE` | secret | `.npmrc` content, consumed by `setup-npmrc`. | X | none |
 | `NPM_PACKAGE_REGISTRY` | secret | npm package registry URL. | X | none |
 | `NPM_PACKAGE_PROXY_REGISTRY` | secret | npm package proxy registry URL. | X | none |
-| `NPM_PACKAGE_REGISTRY_TOKEN` | secret | npm package registry token. | X | none |
-| `NPM_TOKEN` | secret | npmjs.com publish token. Optional — if absent, OIDC Trusted Publisher is used. | | none |
+| `NPM_PACKAGE_REGISTRY_TOKEN` | secret | npm package registry token. Used for install-time auth on every run, and as `NODE_AUTH_TOKEN` at publish time when `provenance: false`. | X | none |
 
 ## Notifications — `notify` (called from `javascript-npm-package`)
 

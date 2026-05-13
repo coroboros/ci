@@ -23,7 +23,7 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 
 | Workflow | Use case |
 | :------- | :------- |
-| `javascript-npm-package.yml` | npm libraries published to a registry. OIDC `pnpm publish --provenance` with `NPM_TOKEN` fallback. |
+| `javascript-npm-package.yml` | npm libraries published to a registry. OIDC `pnpm publish --provenance` with `NPM_PACKAGE_REGISTRY_TOKEN` fallback. |
 | `security.yml` | Container for all security scans (gitleaks today, container scanning / SAST / audit later). Reports rather than blocks for late-stage scans; gitleaks remains a fail-fast check on real leaks. |
 | `notify.yml` | Slack + Google Chat notifications on release-triggering refs. |
 
@@ -49,7 +49,6 @@ jobs:
       NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
       NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
       NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}            # optional — falls back to OIDC if absent
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 ```
 

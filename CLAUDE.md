@@ -33,7 +33,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
   - `pnpm install --frozen-lockfile --ignore-scripts` on every install. `--frozen-lockfile` fails on stale `pnpm-lock.yaml`; `--ignore-scripts` cuts the postinstall vector.
   - `--prod` flag added for production-only installs (e.g. publish-time install).
   - `secrets:` blocks at the workflow_call level declare ONLY the secrets that job consumes. NEVER `secrets: inherit` anywhere in this repo's workflows.
-  - `pnpm publish --provenance --no-git-checks` is the default path; `NPM_TOKEN` is opt-in via the secret being passed. OIDC Trusted Publisher is the primary auth flow.
+  - `pnpm publish --provenance --no-git-checks` is the default path. OIDC Trusted Publisher is the primary auth flow; `NPM_PACKAGE_REGISTRY_TOKEN` doubles as the publish-time `NODE_AUTH_TOKEN` when `provenance: false`.
   - **Never re-introduce npm CLI calls** in the JS composite actions or reusable workflows.
 - **Composite action refs**: reusable workflows reference composite actions by full path with pinned major version: `uses: coroboros/ci/.github/actions/<name>@v0`. Never use floating `@main` or unpinned third-party actions.
 - **Never use `gitleaks/gitleaks-action@v2`** — it requires a paid `gitleaks.io` license for GitHub organizations. `security.yml` invokes the upstream `gitleaks` CLI directly.

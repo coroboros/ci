@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.1 - 13/05/2026
+
+### Breaking changes
+- `NPM_TOKEN` secret removed from `javascript-npm-package.yml`. `NPM_PACKAGE_REGISTRY_TOKEN` now does double duty: install-time registry auth on every run, and `NODE_AUTH_TOKEN` at publish time when `provenance: false`. Consumers passing `NPM_TOKEN` must drop that line and ensure the `NPM_PACKAGE_REGISTRY_TOKEN` value has publish scope.
+
+### Documentation
+- `README.md`, `docs/examples.md` — quick-start and composing examples updated; `NPM_TOKEN` references removed.
+- `docs/environment-variables.md` — `NPM_TOKEN` row removed from the NPM table; `NPM_PACKAGE_REGISTRY_TOKEN` description notes the dual-use.
+- `docs/security.md` — Publish section rewritten around the single-token model.
+
 ## v0.1.0 - 13/05/2026
 
 ### Features

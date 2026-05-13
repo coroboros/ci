@@ -10,7 +10,7 @@ The `javascript-npm-package` pipeline exercises **`setup`**, **`check`**, **`bui
 4. `publish` — *reserved.* Intended for artefact pushes that precede the deploy stage.
 5. `test` — unit and integration tests. *Exercised: `test-npm-unit`.*
 6. `pre-deploy` — *reserved.* Intended for pre-deployment checks against deploy targets.
-7. `deploy` — release-time deployment. *Exercised: `deploy-package` (`pnpm publish` on tag, OIDC + provenance with `NPM_TOKEN` fallback).*
+7. `deploy` — release-time deployment. *Exercised: `deploy-package` (`pnpm publish` on tag, OIDC + provenance with `NPM_PACKAGE_REGISTRY_TOKEN` fallback when `provenance: false`).*
 8. `post-deploy` — *reserved.* Intended for post-deploy verification.
 9. `security` — security scans. *Exercised:* the standalone `security.yml` sub-workflow runs gitleaks (pinned `v8.30.1`, SHA-256 verified) as a fail-fast leak check. Container scanning, SAST, and dependency audit may land here later.
 10. `notify` — release-event notifications. *Exercised:* the standalone `notify.yml` sub-workflow gated by the `should-notify` job (Slack + Google Chat).

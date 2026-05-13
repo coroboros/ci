@@ -22,7 +22,7 @@ on:
         required: false
         default: ""
       provenance:
-        description: When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` when only `NPM_TOKEN` is available.
+        description: When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` when only `NPM_PACKAGE_REGISTRY_TOKEN` is available.
         type: boolean
         required: false
         default: true
@@ -35,8 +35,6 @@ on:
         required: true
       NPM_PACKAGE_REGISTRY_TOKEN:
         required: true
-      NPM_TOKEN:
-        required: false
       SLACK_WEBHOOK_URL:
         required: false
       GOOGLE_CHAT_WEBHOOK_URL:
@@ -154,9 +152,9 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts --prod
         shell: bash
 
-      - name: pnpm publish (OIDC + optional NPM_TOKEN fallback)
+      - name: pnpm publish (OIDC + NPM_PACKAGE_REGISTRY_TOKEN fallback)
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
           WITH_PROVENANCE: ${{ inputs.provenance }}
         run: |
           if [ "${WITH_PROVENANCE}" = "true" ]; then
