@@ -59,6 +59,7 @@ Each composite action under `.github/actions/` is a single pipeline step. Use th
 | Action | Purpose |
 | :----- | :------ |
 | `check-docs` | Fail the job if `README.md` is missing at the repo root. |
+| `resolve-node-version` | Resolve Node.js version from `.node-version` if present, else from the `node-version` input, else fail. |
 | `setup-npmrc` | Generate `.npmrc` files from secrets, upload them as an artifact. |
 | `pnpm-install` | Corepack-enabled `pnpm install --frozen-lockfile --ignore-scripts`. |
 | `build-js` | Run the pnpm build script if present; upload `dist/` as an artifact. |

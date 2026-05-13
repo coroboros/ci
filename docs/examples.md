@@ -84,11 +84,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: coroboros/ci/.github/actions/check-docs@v0
+      - id: node
+        uses: coroboros/ci/.github/actions/resolve-node-version@v0
+        with:
+          node-version: "22"   # fallback when .node-version is absent
       - uses: coroboros/ci/.github/actions/setup-npmrc@v0
         with:
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
       - uses: coroboros/ci/.github/actions/build-js@v0
+        with:
+          node-version: ${{ steps.node.outputs.version }}
       - uses: coroboros/ci/.github/actions/build-version@v0
+        with:
+          node-version: ${{ steps.node.outputs.version }}
       - run: |
           corepack enable
           pnpm publish --provenance --no-git-checks

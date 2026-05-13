@@ -8,8 +8,7 @@ inputs:
     default: "false"
   node-version:
     description: Node.js version to set up.
-    required: false
-    default: "22"
+    required: true
 
 runs:
   using: composite

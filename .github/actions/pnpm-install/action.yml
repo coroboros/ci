@@ -4,8 +4,7 @@ description: corepack-enabled pnpm install with --frozen-lockfile --ignore-scrip
 inputs:
   node-version:
     description: Node.js version to set up.
-    required: false
-    default: "22"
+    required: true
   download-npmrc:
     description: Whether to download the `npmrc` artifact uploaded by setup-npmrc.
     required: false

@@ -46,9 +46,15 @@ permissions:
 jobs:
   check-docs:
     runs-on: ubuntu-latest
+    outputs:
+      node-version: ${{ steps.resolve-node.outputs.version }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: coroboros/ci/.github/actions/check-docs@v0
+      - id: resolve-node
+        uses: coroboros/ci/.github/actions/resolve-node-version@v0
+        with:
+          node-version: ${{ inputs.node-version }}
 
   setup-npmrc:
     runs-on: ubuntu-latest
@@ -62,27 +68,27 @@ jobs:
 
   check-npm-lint:
     runs-on: ubuntu-latest
-    needs: [setup-npmrc]
+    needs: [check-docs, setup-npmrc]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: coroboros/ci/.github/actions/pnpm-install@v0
         with:
-          node-version: ${{ inputs.node-version }}
+          node-version: ${{ needs.check-docs.outputs.node-version }}
       - run: pnpm run lint
         shell: bash
 
   build-js:
     runs-on: ubuntu-latest
-    needs: [setup-npmrc]
+    needs: [check-docs, setup-npmrc]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: coroboros/ci/.github/actions/build-js@v0
         with:
-          node-version: ${{ inputs.node-version }}
+          node-version: ${{ needs.check-docs.outputs.node-version }}
 
   build-version:
     runs-on: ubuntu-latest
-    needs: [setup-npmrc]
+    needs: [check-docs, setup-npmrc]
     if: |
       github.ref_type == 'tag'
       || contains(github.event.head_commit.message, 'Merge branch ''release/')
@@ -92,22 +98,22 @@ jobs:
         with:
           release-branch-pattern: ${{ inputs.release-branch-pattern }}
           release-source-commit-pattern: ${{ inputs.release-source-commit-pattern }}
-          node-version: ${{ inputs.node-version }}
+          node-version: ${{ needs.check-docs.outputs.node-version }}
 
   test-npm-unit:
     runs-on: ubuntu-latest
-    needs: [build-js]
+    needs: [check-docs, build-js]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: coroboros/ci/.github/actions/pnpm-install@v0
         with:
-          node-version: ${{ inputs.node-version }}
+          node-version: ${{ needs.check-docs.outputs.node-version }}
       - run: pnpm test
         shell: bash
 
   deploy-package:
     runs-on: ubuntu-latest
-    needs: [build-js, build-version, test-npm-unit]
+    needs: [check-docs, build-js, build-version, test-npm-unit]
     if: ${{ github.ref_type == 'tag' }}
     permissions:
       id-token: write   # required for npm OIDC Trusted Publisher.
@@ -118,7 +124,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
-          node-version: ${{ inputs.node-version }}
+          node-version: ${{ needs.check-docs.outputs.node-version }}
           registry-url: https://registry.npmjs.org
 
       - name: Enable corepack + activate pnpm

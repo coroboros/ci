@@ -3,14 +3,18 @@
 ## v0.1.1 - 13/05/2026
 
 ### Features
-- `CI_TEXT_GREEN` env in composite actions that emit colored output (`check-docs`, `build-js`), alongside `CI_TEXT_RED` and `CI_TEXT_CLEAR`. `check-docs` emits a green `README.md present` line on success; `build-js` paints the `Non required script 'build' skipped` info line green.
+- `resolve-node-version` composite action. Reads `.node-version` from the consumer repo if present, falls back to the `node-version` input, fails the job if neither is set. The workflow runs it once in `check-docs` and exposes the resolved version as a job output; downstream Node-using jobs consume `needs.check-docs.outputs.node-version`.
+- `CI_TEXT_GREEN` env in composite actions that emit colored output (`check-docs`, `build-js`, `resolve-node-version`), alongside `CI_TEXT_RED` and `CI_TEXT_CLEAR`. `check-docs` emits a green `README.md present` line on success; `build-js` paints the `Non required script 'build' skipped` info line green; `resolve-node-version` logs the resolved version + source in green.
 
 ### Configuration
+- `node-version` on composite actions (`pnpm-install`, `build-js`, `build-version`) is `required: true` with no hardcoded default. The workflow is the single source of truth — `inputs.node-version` (default `"22"`) flows into `resolve-node-version` in `check-docs` and propagates from there.
 - `NPM_PACKAGE_REGISTRY_TOKEN` is `required: false` on `javascript-npm-package.yml`'s `secrets:` block. OIDC Trusted Publisher repos (`provenance: true`, default) don't need to pass it. Repos on token-based publish (`provenance: false`) set it per-repo.
 - `NPM_PACKAGE_REGISTRY_TOKEN` does double duty: install-time registry auth when the registry is private, and `NODE_AUTH_TOKEN` at publish time when `provenance: false`.
 
 ### Documentation
-- `docs/environment-variables.md` — `NPM_PACKAGE_REGISTRY_TOKEN` row marks the secret optional and documents the per-repo-only setup.
+- `README.md` Composable actions table — adds the `resolve-node-version` row.
+- `docs/examples.md` — composing example threads the resolved Node.js version through `build-js` and `build-version` via `resolve-node-version` outputs.
+- `docs/environment-variables.md` — `node-version` row documents the file-then-input-then-fail resolution; `NPM_PACKAGE_REGISTRY_TOKEN` row marks the secret optional and documents the per-repo-only setup.
 - `docs/security.md` — Publish section describes the single-token model and the per-repo-only setup.
 
 ## v0.1.0 - 13/05/2026
