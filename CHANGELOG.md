@@ -27,6 +27,21 @@
   - JavaScript-specific (`.github/actions/javascript/npm/<name>/`): `setup-npmrc`, `pnpm-install`, `build-js`, `build-version`.
 - Workflow `needs:` graph mirrors the GitLab stage order: `base → setup-npmrc → check-docs / check-npm-lint → build-js / build-version → test-npm-unit → deploy-package → notify`.
 - `build-version`, `notify-slack`, `notify-gchat` mark the release pattern inputs as `required: true` with no defaults. The workflow's `base` job is the single source.
+- Every action's top-level `name:` matches its directory leaf (kebab-case): `check-docs`, `setup-base`, `notify-slack`, `notify-gchat`, `setup-npmrc`, `pnpm-install`, `build-js`, `build-version`.
+
+### build-js
+- The build step matches the GitLab origin's logic exactly: `mkdir -p dist`; if `package.json` has `scripts.build` then install + run; otherwise log `Non required script 'build' skipped` in green.
+- No `require-build` input — if the script exists we build, if it doesn't we skip. No toggle.
+- The `.npmrc` artifact download fails the job when missing (no `continue-on-error: true`); the workflow's `setup-npmrc` job guarantees the artifact is present.
+
+### pnpm-install
+- The `.npmrc` artifact download fails the job when missing (when `download-npmrc: 'true'`, the default).
+
+### deploy-package (in `javascript-npm-packages.yml`)
+- The inline `.npmrc` artifact download fails the job when missing.
+
+### notify
+- Slack and Google Chat jobs keep `continue-on-error: true` — a webhook outage on those is intentionally non-blocking for the pipeline.
 
 ## v0.1.0 - 13/05/2026
 

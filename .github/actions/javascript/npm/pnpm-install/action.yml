@@ -46,7 +46,6 @@ runs:
     - name: Download .npmrc artifact
       if: ${{ inputs.download-npmrc == 'true' }}
       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
-      continue-on-error: true
       with:
         name: npmrc
         path: ${{ inputs.working-directory }}
