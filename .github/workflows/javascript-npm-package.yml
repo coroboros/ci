@@ -16,7 +16,7 @@ on:
       release-source-commit-pattern:
         type: string
         required: false
-        default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'master'"
+        default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
       npm-extra-config:
         type: string
         required: false

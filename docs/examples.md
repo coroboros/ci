@@ -13,7 +13,7 @@ See [`environment-variables.md`](environment-variables.md) for the full secret /
 name: CI
 on:
   push:
-    branches: [develop, master]
+    branches: [main]
     tags: ['*']
   workflow_dispatch:
 
@@ -39,7 +39,7 @@ jobs:
 on:
   pull_request:
   push:
-    branches: [develop, master]
+    branches: [main]
   schedule:
     - cron: '0 0 * * 0'
 

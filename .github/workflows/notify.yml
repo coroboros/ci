@@ -15,7 +15,7 @@ on:
         description: ERE pattern for the release-source merge commit.
         type: string
         required: false
-        default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'master'"
+        default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
     secrets:
       SLACK_WEBHOOK_URL:
         required: false

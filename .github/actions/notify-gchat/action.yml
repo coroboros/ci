@@ -12,7 +12,7 @@ inputs:
   release-source-commit-pattern:
     description: ERE pattern for release-source merge commit message.
     required: false
-    default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'master'"
+    default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
 
 runs:
   using: composite

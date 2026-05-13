@@ -6,13 +6,16 @@
 - Public surface trimmed to the npm-package pipeline only. Five reusable workflows removed: `javascript-image`, `javascript-assets`, `javascript-function`, `container-image`, `node-service`. Ten composite actions removed: `build-image-name`, `publish-image`, `build-function`, `deploy-function`, `invoke-function`, `deploy-assets`, `cdn-invalidate`, `deploy-release`, `aws-credentials`, `check-docs-api`. Consumers must vendor the prior `0.1.4` artefacts or migrate. Consumers pinning `@v0` and using only `javascript-npm-package.yml` are unaffected.
 - Composite action `check-readme` renamed to `check-docs` for naming parity with the GitLab origin. Behavior unchanged — still asserts only `README.md` presence.
 
+### Configuration
+- Default branch flipped from `master` to `main`. `release-source-commit-pattern` default updated to `^Merge branch 'release[/]...' into 'main'` across `javascript-npm-package.yml`, `notify.yml`, `build-version`, `notify-slack`, `notify-gchat`. Consumers on a `master` production branch must pass the previous default explicitly to keep matching. Extraction logic and pattern inputs are unchanged — only the default value flips.
+
 ### Documentation
-- `README.md` Pipelines and Composable actions tables trimmed to the new surface (3 + 7 rows).
+- `README.md` Pipelines and Composable actions tables trimmed to the new surface (3 + 7 rows); quick-start `on: push: branches:` updated to `[main]`.
 - `CLAUDE.md` file inventory, Tech stack, Rules, and Architecture notes updated; Kaniko / `publish-image` references removed; Karate and downstream-test-fixture bullets dropped from Out-of-scope.
-- `docs/examples.md` — five non-npm pipeline sections removed; composing example updated to reference `check-docs`.
-- `docs/environment-variables.md` — AWS, Container images, Assets, Lambda functions, Node services sections removed; Common trimmed (`dev-branch` / `prod-branch` dropped); NPM heading renamed to `## NPM — javascript-npm-package`.
+- `docs/examples.md` — five non-npm pipeline sections removed; composing example updated to reference `check-docs`; consumer triggers updated to `[main]`.
+- `docs/environment-variables.md` — AWS, Container images, Assets, Lambda functions, Node services sections removed; Common trimmed (`dev-branch` / `prod-branch` dropped); NPM heading renamed to `## NPM — javascript-npm-package`; `release-source-commit-pattern` default cell updated for `main`.
 - `docs/security.md` — AWS OIDC section removed.
-- `docs/flow.md` — multi-environment software subsection, dynamic-environments paragraph, and `workflow_dispatch` example removed.
+- `docs/flow.md` — multi-environment software subsection removed; `develop` / `master` branch references swapped for `main`; tag-on-merge model surfaced explicitly.
 - `docs/stages.md` rewritten — ten-stage model preserved with pipeline-agnostic descriptions; stages exercised by `javascript-npm-package` annotated, the others marked reserved.
 
 ## v0.1.4 - 12/05/2026
