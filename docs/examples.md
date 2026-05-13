@@ -25,14 +25,12 @@ jobs:
       NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
       NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
       NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
 ```
 
 The three jobs trigger based on the event:
 
-- `preflight` — branch pushes. Install + lint + build + test.
-- `publish` — tag pushes. Preflight chain + pin `package.json` to tag + `pnpm publish` + GitHub Release (body = matching `CHANGELOG.md` section) + Slack / Google Chat notifications.
+- `preflight` — branch pushes. `check-docs` + `javascript/base` (install + lint + build + test).
+- `publish` — tag pushes. Preflight chain + pin `package.json` to tag + `pnpm publish` + GitHub Release (body = matching `CHANGELOG.md` section).
 - `security` — every trigger. Calls `security.yml`.
 
 ## Standalone security scan
@@ -72,6 +70,7 @@ jobs:
       NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
     steps:
       - uses: actions/checkout@v4
+      - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/javascript/base@v0
       - run: pnpm run my-custom-script
         shell: bash

@@ -7,7 +7,7 @@
 
 **Reusable GitHub Actions CI for the Coroboros stack.**
 
-Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose your own pipeline around the `javascript/base` composite action under `.github/actions/`.
+Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose your own pipeline around the composite actions under `.github/actions/`.
 
 [![latest](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&label=latest&color=000000)](https://github.com/coroboros/ci/releases)
 [![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/ci.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/ci.yml)
@@ -49,15 +49,14 @@ jobs:
       NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
       NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
       NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
 ```
 
 ## Composable actions
 
 | Action | Purpose |
 | :----- | :------ |
-| `javascript/base` | Base setup for a JavaScript pipeline job — `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation (`NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`. Called by the `preflight` and `publish` jobs of the bundled workflow; reusable directly when composing your own pipeline. |
+| `check-docs` | Transverse — run context dump + `README.md` presence check. Called as the first step by `preflight` and `publish`; reusable in any language. |
+| `javascript/base` | Base setup for a JavaScript pipeline job — `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation (`NPM_CONFIG_FILE` env + `NPM_EXTRA_CONFIG` env) + `pnpm install --frozen-lockfile --ignore-scripts` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`. Called by `preflight` and `publish`; reusable directly when composing your own pipeline. |
 
 ## Usage
 

@@ -20,7 +20,8 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - `.github/workflows/security.yml` — reusable sub-workflow running gitleaks. Called internally by `javascript-npm-packages.yml` AND directly by standalone consumers / `ci-security.yml`.
 - `.github/workflows/ci.yml` — self-CI: `actionlint`, `yamllint`, `shellcheck`.
 - `.github/workflows/ci-security.yml` — self-CI: calls `security.yml` on push + PR + weekly schedule.
-- `.github/actions/javascript/base/action.yml` — the only composite action. Base setup for a JavaScript pipeline job: `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install`. Called by `preflight` and `publish`.
+- `.github/actions/check-docs/action.yml` — transverse composite: run context dump + `README.md` presence check. Called first by `preflight` and `publish`.
+- `.github/actions/javascript/base/action.yml` — JS-specific composite: `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`. Called by `preflight` and `publish`.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
 - `docs/{examples,environment-variables,flow,security,stages}.md`.
 
@@ -51,7 +52,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 ## Architecture notes
 
 - The pipeline runs in 3 jobs (`preflight`, `publish`, `security`), gated by trigger event. Each job runs all its steps in a single runner — no inter-job artifacts, no `needs:` chain except `security` calling `security.yml`.
-- The shared install + setup chunk lives in the `javascript/base` composite action. `preflight` + `publish` both call it as their first step.
+- Two composite actions: `check-docs` (transverse — run context dump + README check, no inputs/env) and `javascript/base` (JS-specific — full preamble + install + lint + build + test). Both called by `preflight` and `publish`.
 - `javascript/base` has zero inputs. Reads `NPM_CONFIG_FILE` (required, fails if missing) + `NPM_EXTRA_CONFIG` (optional) from inherited workflow env. The bundled workflow sets both at workflow level from `secrets.NPM_CONFIG_FILE` + `vars.NPM_EXTRA_CONFIG`; standalone callers mirror the env block.
 - `security.yml` is the reusable container for ALL security scans. Today it runs gitleaks. Future additions (container scanning, SAST, dependency audit) land here as more steps.
 - `publish` job reads the `## vX.Y.Z` (or `## X.Y.Z`) section from `CHANGELOG.md` matching the tag and uses it as the GitHub Release body. The dev curates `CHANGELOG.md` before tagging.

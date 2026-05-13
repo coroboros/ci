@@ -22,8 +22,6 @@ Node.js version is resolved by `javascript/base` from the consumer's `.node-vers
 | `NPM_PACKAGE_REGISTRY` | X | npm package registry URL (used inside `NPM_CONFIG_FILE` via `${NPM_PACKAGE_REGISTRY}` expansion at runtime). |
 | `NPM_PACKAGE_PROXY_REGISTRY` | X | npm package proxy registry URL. |
 | `NPM_PACKAGE_REGISTRY_TOKEN` | | npm package registry token. Used for install-time auth when the registry is private, and as `NODE_AUTH_TOKEN` at publish time when `provenance: false`. **Set per-repo only when needed** — leaving it unset at the org level keeps OIDC Trusted Publisher repos token-free. |
-| `SLACK_WEBHOOK_URL` | | Slack webhook. Notification step in the `publish` job is skipped when empty. |
-| `GOOGLE_CHAT_WEBHOOK_URL` | | Google Chat webhook. Notification step in the `publish` job is skipped when empty. |
 
 ## `vars` context — caller's repo / org / env
 
