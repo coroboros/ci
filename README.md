@@ -23,7 +23,7 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 
 | Workflow | Use case |
 | :------- | :------- |
-| `javascript-npm-package.yml` | npm libraries published to a registry. OIDC `pnpm publish --provenance` with `NPM_PACKAGE_REGISTRY_TOKEN` fallback. |
+| `javascript-npm-packages.yml` | npm libraries published to a registry. OIDC `pnpm publish --provenance` with `NPM_PACKAGE_REGISTRY_TOKEN` fallback. |
 | `security.yml` | Container for all security scans (gitleaks today, container scanning / SAST / audit later). Reports rather than blocks for late-stage scans; gitleaks remains a fail-fast check on real leaks. |
 | `notify.yml` | Slack + Google Chat notifications on release-triggering refs. |
 
@@ -40,7 +40,7 @@ on:
 
 jobs:
   ci:
-    uses: coroboros/ci/.github/workflows/javascript-npm-package.yml@v0
+    uses: coroboros/ci/.github/workflows/javascript-npm-packages.yml@v0
     permissions:
       id-token: write
       contents: read
@@ -58,8 +58,8 @@ Each composite action under `.github/actions/` is a single pipeline step. Use th
 
 | Action | Purpose |
 | :----- | :------ |
+| `setup-base` | Resolve the common pipeline configuration — Node.js version (from `.node-version` else input else fail), release-branch / release-source-commit patterns (from `vars` else default), `npm-extra-config` (from `vars`). Run once in the workflow's `base` job; downstream jobs and actions inherit via `needs.base.outputs.*`. |
 | `check-docs` | Fail the job if `README.md` is missing at the repo root. |
-| `resolve-node-version` | Resolve Node.js version from `.node-version` if present, else from the `node-version` input, else fail. |
 | `setup-npmrc` | Generate `.npmrc` files from secrets, upload them as an artifact. |
 | `pnpm-install` | Corepack-enabled `pnpm install --frozen-lockfile --ignore-scripts`. |
 | `build-js` | Run the pnpm build script if present; upload `dist/` as an artifact. |

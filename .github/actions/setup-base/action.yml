@@ -1,0 +1,87 @@
+name: Setup base
+description: Resolve the common pipeline configuration — Node.js version, release-branch pattern, release-source commit pattern, npm extra config. Reads `.node-version` from the consumer repo; reads `vars.*` for env-var-style overrides; falls back to hardcoded defaults.
+
+inputs:
+  node-version:
+    description: Fallback Node.js version when no `.node-version` file is present at the repo root.
+    required: false
+    default: ""
+  require-node:
+    description: When `false`, skip Node.js version resolution. Use this in workflows that don't run any Node.js step.
+    required: false
+    default: "true"
+
+outputs:
+  node-version:
+    description: Resolved Node.js version (no `v` prefix). Empty when `require-node` is `false`.
+    value: ${{ steps.b.outputs.node-version }}
+  release-branch-pattern:
+    description: Resolved ERE pattern for release branches.
+    value: ${{ steps.b.outputs.release-branch-pattern }}
+  release-source-commit-pattern:
+    description: Resolved ERE pattern for the release-source merge commit message.
+    value: ${{ steps.b.outputs.release-source-commit-pattern }}
+  npm-extra-config:
+    description: Extra `.npmrc` content appended after `NPM_CONFIG_FILE`.
+    value: ${{ steps.b.outputs.npm-extra-config }}
+
+runs:
+  using: composite
+  steps:
+    - id: b
+      shell: bash
+      env:
+        REQUIRE_NODE: ${{ inputs.require-node }}
+        INPUT_NODE_VERSION: ${{ inputs.node-version }}
+        VAR_RELEASE_BRANCH_PATTERN: ${{ vars.RELEASE_BRANCH_PATTERN }}
+        VAR_RELEASE_SOURCE_BRANCH_COMMIT_PATTERN: ${{ vars.RELEASE_SOURCE_BRANCH_COMMIT_PATTERN }}
+        VAR_NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+        DEFAULT_RELEASE_BRANCH_PATTERN: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+        DEFAULT_RELEASE_SOURCE_COMMIT_PATTERN: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
+        CI_TEXT_RED: "\e[31m"
+        CI_TEXT_GREEN: "\e[32m"
+        CI_TEXT_CLEAR: "\e[0m"
+      run: |
+        rbp="${VAR_RELEASE_BRANCH_PATTERN:-${DEFAULT_RELEASE_BRANCH_PATTERN}}"
+        rbp_source="vars.RELEASE_BRANCH_PATTERN"
+        [ -z "${VAR_RELEASE_BRANCH_PATTERN}" ] && rbp_source="default"
+
+        rscp="${VAR_RELEASE_SOURCE_BRANCH_COMMIT_PATTERN:-${DEFAULT_RELEASE_SOURCE_COMMIT_PATTERN}}"
+        rscp_source="vars.RELEASE_SOURCE_BRANCH_COMMIT_PATTERN"
+        [ -z "${VAR_RELEASE_SOURCE_BRANCH_COMMIT_PATTERN}" ] && rscp_source="default"
+
+        npm_extra="${VAR_NPM_EXTRA_CONFIG}"
+
+        node_version=""
+        node_source=""
+        if [ "${REQUIRE_NODE}" = "true" ]; then
+          if [ -f .node-version ]; then
+            node_version="$(tr -d '[:space:]v' < .node-version)"
+            node_source=".node-version"
+          elif [ -n "${INPUT_NODE_VERSION}" ]; then
+            node_version="${INPUT_NODE_VERSION}"
+            node_source="node-version input"
+          else
+            printf '%b\n' "${CI_TEXT_RED}Node.js version is required: provide a .node-version file at the repo root or pass the node-version input.${CI_TEXT_CLEAR}"
+            exit 1
+          fi
+        fi
+
+        printf '%b\n' "${CI_TEXT_GREEN}Base configuration:${CI_TEXT_CLEAR}"
+        if [ -n "${node_version}" ]; then
+          echo "  node-version:                  ${node_version} (from ${node_source})"
+        fi
+        echo "  release-branch-pattern:        ${rbp} (from ${rbp_source})"
+        echo "  release-source-commit-pattern: ${rscp} (from ${rscp_source})"
+        if [ -n "${npm_extra}" ]; then
+          echo "  npm-extra-config:              set (vars.NPM_EXTRA_CONFIG)"
+        fi
+
+        {
+          echo "node-version=${node_version}"
+          echo "release-branch-pattern=${rbp}"
+          echo "release-source-commit-pattern=${rscp}"
+          echo "npm-extra-config<<NPM_EXTRA_EOF"
+          echo "${npm_extra}"
+          echo "NPM_EXTRA_EOF"
+        } >> "${GITHUB_OUTPUT}"

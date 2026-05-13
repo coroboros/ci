@@ -10,10 +10,7 @@ Each variable below is passed either as a **secret** (`secrets:` block on `workf
 
 | name | type | description | required | default |
 | :--- | :--- | :---------- | :------- | :------ |
-| `node-version` | input | Node.js fallback version. The workflow's `check-docs` job calls `resolve-node-version`, which reads `.node-version` from the consumer repo if present, falls back to this input, and fails the job if neither is set. | | `22` |
-| `release-branch-pattern` | input | ERE pattern matching release branches. | | `^release[/]((0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*))$` |
-| `release-source-commit-pattern` | input | ERE pattern matching the release-source merge commit message. Used to extract the version when merging `release/x.y.z` into the default branch. | | `^Merge branch 'release[/]((0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*))' into 'main'` |
-| `npm-extra-config` | input | Extra `.npmrc` content appended after `NPM_CONFIG_FILE`. | | `""` |
+| `node-version` | input | Node.js fallback version. The workflow's `base` job calls `setup-base`, which reads `.node-version` from the consumer repo if present, falls back to this input, and fails the job if neither is set. | | `""` |
 
 ## NPM — `javascript-npm-package`
 

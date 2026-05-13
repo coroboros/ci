@@ -5,17 +5,6 @@ name: Notify
 
 on:
   workflow_call:
-    inputs:
-      release-branch-pattern:
-        description: ERE pattern for release branches.
-        type: string
-        required: false
-        default: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
-      release-source-commit-pattern:
-        description: ERE pattern for the release-source merge commit.
-        type: string
-        required: false
-        default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
     secrets:
       SLACK_WEBHOOK_URL:
         required: false
@@ -26,8 +15,21 @@ permissions:
   contents: read
 
 jobs:
+  base:
+    runs-on: ubuntu-latest
+    outputs:
+      release-branch-pattern: ${{ steps.b.outputs.release-branch-pattern }}
+      release-source-commit-pattern: ${{ steps.b.outputs.release-source-commit-pattern }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - id: b
+        uses: coroboros/ci/.github/actions/setup-base@v0
+        with:
+          require-node: "false"
+
   should-notify:
     runs-on: ubuntu-latest
+    needs: [base]
     outputs:
       go: ${{ steps.gate.outputs.go }}
     steps:
@@ -35,8 +37,8 @@ jobs:
         id: gate
         shell: bash
         env:
-          RELEASE_BRANCH_PATTERN: ${{ inputs.release-branch-pattern }}
-          RELEASE_SOURCE_BRANCH_COMMIT_PATTERN: ${{ inputs.release-source-commit-pattern }}
+          RELEASE_BRANCH_PATTERN: ${{ needs.base.outputs.release-branch-pattern }}
+          RELEASE_SOURCE_BRANCH_COMMIT_PATTERN: ${{ needs.base.outputs.release-source-commit-pattern }}
           CI_COMMIT_REF_NAME: ${{ github.ref_name }}
           CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           IS_TAG: ${{ github.ref_type == 'tag' }}
@@ -55,7 +57,7 @@ jobs:
           echo "Notification gate result: ${go}"
 
   slack:
-    needs: [should-notify]
+    needs: [base, should-notify]
     if: ${{ needs.should-notify.outputs.go == 'true' }}
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -77,11 +79,11 @@ jobs:
         if: ${{ steps.gate.outputs.go == 'true' }}
         with:
           slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          release-branch-pattern: ${{ inputs.release-branch-pattern }}
-          release-source-commit-pattern: ${{ inputs.release-source-commit-pattern }}
+          release-branch-pattern: ${{ needs.base.outputs.release-branch-pattern }}
+          release-source-commit-pattern: ${{ needs.base.outputs.release-source-commit-pattern }}
 
   gchat:
-    needs: [should-notify]
+    needs: [base, should-notify]
     if: ${{ needs.should-notify.outputs.go == 'true' }}
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -103,5 +105,5 @@ jobs:
         if: ${{ steps.gate.outputs.go == 'true' }}
         with:
           google-chat-webhook-url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
-          release-branch-pattern: ${{ inputs.release-branch-pattern }}
-          release-source-commit-pattern: ${{ inputs.release-source-commit-pattern }}
+          release-branch-pattern: ${{ needs.base.outputs.release-branch-pattern }}
+          release-source-commit-pattern: ${{ needs.base.outputs.release-source-commit-pattern }}

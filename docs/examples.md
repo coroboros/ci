@@ -19,7 +19,7 @@ on:
 
 jobs:
   ci:
-    uses: coroboros/ci/.github/workflows/javascript-npm-package.yml@v0
+    uses: coroboros/ci/.github/workflows/javascript-npm-packages.yml@v0
     permissions:
       id-token: write    # required for npm OIDC publish
       contents: read
@@ -84,19 +84,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: coroboros/ci/.github/actions/check-docs@v0
-      - id: node
-        uses: coroboros/ci/.github/actions/resolve-node-version@v0
+      - id: base
+        uses: coroboros/ci/.github/actions/setup-base@v0
         with:
           node-version: "22"   # fallback when .node-version is absent
       - uses: coroboros/ci/.github/actions/setup-npmrc@v0
         with:
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
+          npm-extra-config: ${{ steps.base.outputs.npm-extra-config }}
       - uses: coroboros/ci/.github/actions/build-js@v0
         with:
-          node-version: ${{ steps.node.outputs.version }}
+          node-version: ${{ steps.base.outputs.node-version }}
       - uses: coroboros/ci/.github/actions/build-version@v0
         with:
-          node-version: ${{ steps.node.outputs.version }}
+          node-version: ${{ steps.base.outputs.node-version }}
+          release-branch-pattern: ${{ steps.base.outputs.release-branch-pattern }}
+          release-source-commit-pattern: ${{ steps.base.outputs.release-source-commit-pattern }}
       - run: |
           corepack enable
           pnpm publish --provenance --no-git-checks

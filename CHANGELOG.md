@@ -3,19 +3,22 @@
 ## v0.1.1 - 13/05/2026
 
 ### Features
-- `resolve-node-version` composite action. Reads `.node-version` from the consumer repo if present, falls back to the `node-version` input, fails the job if neither is set. The workflow runs it once in `check-docs` and exposes the resolved version as a job output; downstream Node-using jobs consume `needs.check-docs.outputs.node-version`.
-- `CI_TEXT_GREEN` env in composite actions that emit colored output (`check-docs`, `build-js`, `resolve-node-version`), alongside `CI_TEXT_RED` and `CI_TEXT_CLEAR`. `check-docs` emits a green `README.md present` line on success; `build-js` paints the `Non required script 'build' skipped` info line green; `resolve-node-version` logs the resolved version + source in green.
+- `setup-base` composite action — the pipeline's single source of defaults. Resolves Node.js version (`.node-version` file → `node-version` input → fail), release-branch pattern, release-source commit pattern, and `npm-extra-config` (caller-repo `vars.*` → hardcoded default). The workflow runs `setup-base` once in a `base` job, exposes everything as job outputs; downstream jobs inherit via `needs.base.outputs.*`; downstream actions inherit via the workflow's `with:` plumbing.
+- `CI_TEXT_GREEN` env in composite actions that emit colored output (`check-docs`, `build-js`, `setup-base`), alongside `CI_TEXT_RED` and `CI_TEXT_CLEAR`. Success / info messages paint green; failures paint red.
 
 ### Configuration
-- `node-version` on composite actions (`pnpm-install`, `build-js`, `build-version`) is `required: true` with no hardcoded default. The workflow is the single source of truth — `inputs.node-version` (default `"22"`) flows into `resolve-node-version` in `check-docs` and propagates from there.
-- `NPM_PACKAGE_REGISTRY_TOKEN` is `required: false` on `javascript-npm-package.yml`'s `secrets:` block. OIDC Trusted Publisher repos (`provenance: true`, default) don't need to pass it. Repos on token-based publish (`provenance: false`) set it per-repo.
+- `javascript-npm-packages.yml` (workflow filename) — plural, matching the GitLab origin's `templates/javascript/npm-packages/` folder.
+- The workflow's `inputs:` block declares only `node-version` (fallback for `setup-base`) and `provenance` (publish behavior toggle). Env-var-style settings (`RELEASE_BRANCH_PATTERN`, `RELEASE_SOURCE_BRANCH_COMMIT_PATTERN`, `NPM_EXTRA_CONFIG`) flow through the caller's `vars` context — set them at the org / repo / environment level and `setup-base` picks them up. Defaults live in `setup-base`.
+- `node-version` on composite actions (`pnpm-install`, `build-js`, `build-version`) is `required: true` with no hardcoded default. The workflow's `base` job is the single source of truth.
+- `NPM_PACKAGE_REGISTRY_TOKEN` is `required: false` on `javascript-npm-packages.yml`'s `secrets:` block. OIDC Trusted Publisher repos (`provenance: true`, default) don't pass it. Repos on token-based publish (`provenance: false`) set it per-repo.
 - `NPM_PACKAGE_REGISTRY_TOKEN` does double duty: install-time registry auth when the registry is private, and `NODE_AUTH_TOKEN` at publish time when `provenance: false`.
 
 ### Documentation
-- `README.md` Composable actions table — adds the `resolve-node-version` row.
-- `docs/examples.md` — composing example threads the resolved Node.js version through `build-js` and `build-version` via `resolve-node-version` outputs.
-- `docs/environment-variables.md` — `node-version` row documents the file-then-input-then-fail resolution; `NPM_PACKAGE_REGISTRY_TOKEN` row marks the secret optional and documents the per-repo-only setup.
-- `docs/security.md` — Publish section describes the single-token model and the per-repo-only setup.
+- `README.md` — Pipelines table references `javascript-npm-packages.yml`; Composable actions table adds the `setup-base` row at the top.
+- `docs/examples.md` — quick-start references `javascript-npm-packages.yml`; composing example threads the resolved base configuration through `setup-npmrc`, `build-js`, `build-version` via `setup-base` outputs.
+- `docs/environment-variables.md` — Common section keeps only `node-version` (the only declared input besides `provenance`); env-var-style settings live under `vars` context.
+- `docs/security.md` — Publish section describes the single-token model and the per-repo-only setup for `NPM_PACKAGE_REGISTRY_TOKEN`.
+- `CLAUDE.md` — file inventory updated for the rename and the eight composite actions (with `setup-base` as the base step).
 
 ## v0.1.0 - 13/05/2026
 

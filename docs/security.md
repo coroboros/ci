@@ -15,7 +15,7 @@ The pnpm CLI is resolved via `corepack` from the consumer's `package.json packag
 
 ## Publish — OIDC + provenance
 
-`pnpm publish --provenance --no-git-checks` is the default path for `javascript-npm-package.yml`. It uses npm's OIDC Trusted Publisher flow when the consumer's npmjs.com package is configured for it — no long-lived publish token is required.
+`pnpm publish --provenance --no-git-checks` is the default path for `javascript-npm-packages.yml`. It uses npm's OIDC Trusted Publisher flow when the consumer's npmjs.com package is configured for it — no long-lived publish token is required.
 
 `NPM_PACKAGE_REGISTRY_TOKEN` does double duty: it authenticates `pnpm install` against the registry when the registry is private, and acts as the `NODE_AUTH_TOKEN` at publish time when `provenance: false`. Set the secret **per-repo, not at the org level** — leaving it unset across the org keeps OIDC Trusted Publisher repos token-free; only repos still on token-based publish (`provenance: false`) need the secret defined.
 
