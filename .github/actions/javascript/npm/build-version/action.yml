@@ -1,4 +1,4 @@
-name: Build version
+name: build-version
 description: Extract the SemVer version from tag / branch / commit and pin package.json to it.
 
 inputs:

@@ -1,4 +1,4 @@
-name: Build JS
+name: build-js
 description: Run the pnpm build script if present; upload dist/ as an artifact.
 
 inputs:

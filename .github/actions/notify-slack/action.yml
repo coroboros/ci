@@ -1,4 +1,4 @@
-name: Notify Slack
+name: notify-slack
 description: Post a deployment notification to a Slack webhook.
 
 inputs:

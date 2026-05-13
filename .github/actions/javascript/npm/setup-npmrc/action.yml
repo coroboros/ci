@@ -1,6 +1,6 @@
 # Replaces every .npmrc in the workspace with the content of `npm-config-file` and appends `npm-extra-config`.
 # Uploads the produced .npmrc files as an artifact named `npmrc` (1-week retention).
-name: Setup npmrc
+name: setup-npmrc
 description: Generate .npmrc files from a config blob and an extras blob, upload them as an artifact.
 
 inputs:

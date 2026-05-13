@@ -1,4 +1,4 @@
-name: pnpm install
+name: pnpm-install
 description: corepack-enabled pnpm install with --frozen-lockfile --ignore-scripts.
 
 inputs:

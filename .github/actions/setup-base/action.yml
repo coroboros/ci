@@ -1,4 +1,4 @@
-name: Setup base
+name: setup-base
 description: Resolve the common pipeline configuration — Node.js version, release-branch pattern, release-source commit pattern, npm extra config. Reads `.node-version` from the consumer repo; reads `vars.*` for env-var-style overrides; falls back to hardcoded defaults.
 
 inputs:

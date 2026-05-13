@@ -1,4 +1,4 @@
-name: Notify Google Chat
+name: notify-gchat
 description: Post a deployment notification to a Google Chat webhook.
 
 inputs:
