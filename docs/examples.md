@@ -75,7 +75,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: coroboros/ci/.github/actions/javascript/base@v0
         with:
-          node-version: "22"   # fallback when .node-version is absent
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
       - run: pnpm run my-custom-script
         shell: bash

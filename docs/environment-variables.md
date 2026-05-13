@@ -10,8 +10,9 @@ Three sources of configuration:
 
 | name | type | description | required | default |
 | :--- | :--- | :---------- | :------- | :------ |
-| `node-version` | string | Fallback Node.js version. `javascript/base` reads `.node-version` from the consumer repo if present, falls back to this input, fails the job if neither is set. | | `""` |
 | `provenance` | boolean | When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` to fall back to publishing with `NPM_PACKAGE_REGISTRY_TOKEN` as `NODE_AUTH_TOKEN`. | | `true` |
+
+Node.js version is resolved by `javascript/base` from the consumer's `.node-version` file; falls back to `DEFAULT_NODE_VERSION` (`22`) hardcoded in the action when the file is absent. No workflow input.
 
 ## `javascript-npm-packages.yml` secrets
 

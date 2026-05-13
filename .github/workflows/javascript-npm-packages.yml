@@ -4,11 +4,6 @@ name: JavaScript NPM Packages
 on:
   workflow_call:
     inputs:
-      node-version:
-        description: Fallback Node.js version when no `.node-version` file is present at the consumer repo root.
-        type: string
-        required: false
-        default: ""
       provenance:
         description: When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` to fall back to publishing with `NPM_PACKAGE_REGISTRY_TOKEN` as `NODE_AUTH_TOKEN`.
         type: boolean
@@ -40,7 +35,6 @@ jobs:
       - id: setup
         uses: coroboros/ci/.github/actions/javascript/base@v0
         with:
-          node-version: ${{ inputs.node-version }}
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
       - name: Lint
         shell: bash
@@ -70,7 +64,6 @@ jobs:
       - id: setup
         uses: coroboros/ci/.github/actions/javascript/base@v0
         with:
-          node-version: ${{ inputs.node-version }}
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
 
       - name: Lint

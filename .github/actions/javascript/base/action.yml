@@ -1,11 +1,8 @@
-name: javascript/base
-description: Base setup for a JavaScript pipeline job — resolves Node.js version, sets up Node + corepack + pnpm cache, generates `.npmrc` from the consumer's secret blob, runs `pnpm install --frozen-lockfile --ignore-scripts`. Logs the GitHub run context.
+# JavaScript Base
+name: javascript-base
+description: Base setup for a JavaScript pipeline job.
 
 inputs:
-  node-version:
-    description: Fallback Node.js version when no `.node-version` file is present at the repo root.
-    required: false
-    default: ""
   npm-config-file:
     description: Full content of the `.npmrc` to drop at the repo root (typically passed from the caller's `secrets.NPM_CONFIG_FILE`).
     required: true
@@ -19,11 +16,10 @@ runs:
   using: composite
   steps:
     - id: resolve
-      name: Resolve base config + log run context
+      name: Resolve Node.js version + log run context
       shell: bash
       env:
-        INPUT_NODE_VERSION: ${{ inputs.node-version }}
-        VAR_NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+        DEFAULT_NODE_VERSION: "22"
       run: |
         echo "Run context:"
         echo "  GITHUB_REF_NAME       | ${GITHUB_REF_NAME}"
@@ -36,12 +32,9 @@ runs:
         if [ -f .node-version ]; then
           node_version="$(tr -d '[:space:]v' < .node-version)"
           node_source=".node-version"
-        elif [ -n "${INPUT_NODE_VERSION}" ]; then
-          node_version="${INPUT_NODE_VERSION}"
-          node_source="node-version input"
         else
-          echo "::error::Node.js version is required: provide a .node-version file at the repo root or pass the node-version input."
-          exit 1
+          node_version="${DEFAULT_NODE_VERSION}"
+          node_source="DEFAULT_NODE_VERSION"
         fi
         echo "Resolved Node.js version: ${node_version} (from ${node_source})"
         echo "node-version=${node_version}" >> "${GITHUB_OUTPUT}"

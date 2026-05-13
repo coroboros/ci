@@ -12,10 +12,10 @@
 - Self-CI workflows: `ci.yml` (`actionlint`, `yamllint`, `shellcheck`) and `ci-security.yml` (calls `security.yml` on push + PR + weekly schedule).
 
 ### Configuration
-- pnpm via corepack (resolved from the consumer's `package.json` `packageManager` field). Node version resolved from the consumer's `.node-version` file; falls back to the workflow's `node-version` input; fails the job if neither is set.
+- pnpm via corepack (resolved from the consumer's `package.json` `packageManager` field). Node version resolved from the consumer's `.node-version` file; falls back to `DEFAULT_NODE_VERSION` (`22`) hardcoded in `javascript/base`.
 - `NPM_PACKAGE_REGISTRY_TOKEN` is the single npm token: install-time registry auth when the registry is private, publish-time `NODE_AUTH_TOKEN` when `provenance: false`. Set per-repo only when needed.
 - Env-var-style settings (`NPM_EXTRA_CONFIG`) cascade via the caller's `vars` context.
-- Workflow inputs: `node-version` (fallback), `provenance` (publish behavior toggle, default `true`).
+- Workflow input: `provenance` (publish behavior toggle, default `true`).
 - Workflow secrets: `NPM_CONFIG_FILE` (required), `NPM_PACKAGE_REGISTRY` (required), `NPM_PACKAGE_PROXY_REGISTRY` (required), `NPM_PACKAGE_REGISTRY_TOKEN` (optional), `SLACK_WEBHOOK_URL` (optional), `GOOGLE_CHAT_WEBHOOK_URL` (optional).
 - `publish` job declares `permissions: contents: write` (for GitHub Release creation) and `id-token: write` (for npm OIDC). Consumer grants both at the caller-job level.
 - `.gitleaks.toml` lives at `security/.gitleaks.toml`. Canonical raw URL fallback for cross-repo use.
