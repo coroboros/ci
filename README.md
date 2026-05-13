@@ -34,7 +34,7 @@ GitHub Actions workflows and composite actions. Drop into any `@coroboros/*` rep
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [develop, main]
     tags: ['*']
   workflow_dispatch:
 
