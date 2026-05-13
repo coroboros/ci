@@ -1,0 +1,41 @@
+# Replaces every .npmrc in the workspace with the content of `npm-config-file` and appends `npm-extra-config`.
+# Uploads the produced .npmrc files as an artifact named `npmrc` (1-week retention).
+name: Setup npmrc
+description: Generate .npmrc files from a config blob and an extras blob, upload them as an artifact.
+
+inputs:
+  npm-config-file:
+    description: Full content of the base .npmrc.
+    required: true
+  npm-extra-config:
+    description: Extra content appended to every .npmrc (newline-separated).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Generate .npmrc files
+      shell: bash
+      env:
+        NPM_CONFIG_FILE_CONTENT: ${{ inputs.npm-config-file }}
+        NPM_EXTRA_CONFIG: ${{ inputs.npm-extra-config }}
+      run: |
+        touch .npmrc
+        npm_config_path="$(mktemp)"
+        printf '%s' "${NPM_CONFIG_FILE_CONTENT}" > "${npm_config_path}"
+        find . -name .npmrc -not -path './node_modules/*' -exec cp "${npm_config_path}" {} \; \
+          -exec bash -c 'file="$1"; printf "\n%s\n" "${NPM_EXTRA_CONFIG}" >> "${file}"' shell {} \;
+        rm -f "${npm_config_path}"
+        cat .npmrc
+
+    - name: Upload .npmrc artifact
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      with:
+        name: npmrc
+        path: |
+          .npmrc
+          **/.npmrc
+          !node_modules/**
+        retention-days: 7
+        include-hidden-files: true

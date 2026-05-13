@@ -1,0 +1,107 @@
+# Two parallel notification jobs (Slack + Google Chat).
+# Both run only on release-triggering refs (tags, latest/stable, release branches, release-source merges).
+# Both allow failure so a webhook outage never blocks the pipeline (`continue-on-error: true`).
+name: Notify
+
+on:
+  workflow_call:
+    inputs:
+      release-branch-pattern:
+        description: ERE pattern for release branches.
+        type: string
+        required: false
+        default: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+      release-source-commit-pattern:
+        description: ERE pattern for the release-source merge commit.
+        type: string
+        required: false
+        default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: false
+      GOOGLE_CHAT_WEBHOOK_URL:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  should-notify:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.gate.outputs.go }}
+    steps:
+      - name: Gate
+        id: gate
+        shell: bash
+        env:
+          RELEASE_BRANCH_PATTERN: ${{ inputs.release-branch-pattern }}
+          RELEASE_SOURCE_BRANCH_COMMIT_PATTERN: ${{ inputs.release-source-commit-pattern }}
+          CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          IS_TAG: ${{ github.ref_type == 'tag' }}
+        run: |
+          go="false"
+          if [ "${IS_TAG}" = "true" ]; then
+            go="true"
+          elif [ "${CI_COMMIT_REF_NAME}" = "latest" ] || [ "${CI_COMMIT_REF_NAME}" = "stable" ]; then
+            go="true"
+          elif [[ "${CI_COMMIT_REF_NAME}" =~ $RELEASE_BRANCH_PATTERN ]]; then
+            go="true"
+          elif [[ "${CI_COMMIT_MESSAGE}" =~ $RELEASE_SOURCE_BRANCH_COMMIT_PATTERN ]]; then
+            go="true"
+          fi
+          echo "go=${go}" >> "${GITHUB_OUTPUT}"
+          echo "Notification gate result: ${go}"
+
+  slack:
+    needs: [should-notify]
+    if: ${{ needs.should-notify.outputs.go == 'true' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Skip if SLACK_WEBHOOK_URL is empty
+        id: gate
+        shell: bash
+        env:
+          WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "${WEBHOOK}" ]; then
+            echo "go=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "go=true" >> "${GITHUB_OUTPUT}"
+          fi
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        if: ${{ steps.gate.outputs.go == 'true' }}
+      - uses: coroboros/ci/.github/actions/notify-slack@v0
+        if: ${{ steps.gate.outputs.go == 'true' }}
+        with:
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          release-branch-pattern: ${{ inputs.release-branch-pattern }}
+          release-source-commit-pattern: ${{ inputs.release-source-commit-pattern }}
+
+  gchat:
+    needs: [should-notify]
+    if: ${{ needs.should-notify.outputs.go == 'true' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Skip if GOOGLE_CHAT_WEBHOOK_URL is empty
+        id: gate
+        shell: bash
+        env:
+          WEBHOOK: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+        run: |
+          if [ -z "${WEBHOOK}" ]; then
+            echo "go=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "go=true" >> "${GITHUB_OUTPUT}"
+          fi
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        if: ${{ steps.gate.outputs.go == 'true' }}
+      - uses: coroboros/ci/.github/actions/notify-gchat@v0
+        if: ${{ steps.gate.outputs.go == 'true' }}
+        with:
+          google-chat-webhook-url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+          release-branch-pattern: ${{ inputs.release-branch-pattern }}
+          release-source-commit-pattern: ${{ inputs.release-source-commit-pattern }}

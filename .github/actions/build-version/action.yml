@@ -1,0 +1,72 @@
+name: Build version
+description: Extract the SemVer version from tag / branch / commit and pin package.json to it.
+
+inputs:
+  release-branch-pattern:
+    description: ERE-style pattern for release branches. Defaults to SemVer release branch.
+    required: false
+    default: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+  release-source-commit-pattern:
+    description: ERE-style pattern for the release-source merge commit message.
+    required: false
+    default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
+  node-version:
+    description: Node.js version to set up.
+    required: false
+    default: "22"
+
+outputs:
+  version:
+    description: The extracted version (no `v` prefix).
+    value: ${{ steps.extract.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Enable corepack + activate pnpm
+      shell: bash
+      run: |
+        corepack enable
+        pnpm --version
+
+    - name: Extract and pin version
+      id: extract
+      shell: bash
+      env:
+        RELEASE_BRANCH_PATTERN: ${{ inputs.release-branch-pattern }}
+        RELEASE_SOURCE_BRANCH_COMMIT_PATTERN: ${{ inputs.release-source-commit-pattern }}
+        CI_COMMIT_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+        CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+      run: |
+        if [ -n "${CI_COMMIT_TAG}" ]; then
+          tag="${CI_COMMIT_TAG}"
+        else
+          if [[ "${CI_COMMIT_REF_NAME}" =~ $RELEASE_BRANCH_PATTERN ]]; then
+            tag="${BASH_REMATCH[1]}"
+          elif [[ "${CI_COMMIT_MESSAGE}" =~ $RELEASE_SOURCE_BRANCH_COMMIT_PATTERN ]]; then
+            tag="${BASH_REMATCH[1]}"
+          else
+            echo "Version not found in tag, release branch or commit message"
+            exit 1
+          fi
+        fi
+
+        echo "Updating package with version ${tag}"
+        pnpm version --allow-same-version --no-git-tag-version "${tag}"
+        echo "version=${tag}" >> "${GITHUB_OUTPUT}"
+
+    - name: Upload package.json artifact
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      with:
+        name: package-version
+        path: |
+          package.json
+          pnpm-lock.yaml
+        retention-days: 7
+        if-no-files-found: warn

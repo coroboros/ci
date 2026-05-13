@@ -1,0 +1,65 @@
+name: pnpm install
+description: corepack-enabled pnpm install with --frozen-lockfile --ignore-scripts.
+
+inputs:
+  node-version:
+    description: Node.js version to set up.
+    required: false
+    default: "22"
+  download-npmrc:
+    description: Whether to download the `npmrc` artifact uploaded by setup-npmrc.
+    required: false
+    default: "true"
+  working-directory:
+    description: Directory to run pnpm install in.
+    required: false
+    default: "."
+  prod:
+    description: When `true`, install production dependencies only (`--prod`).
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Enable corepack + activate pnpm from packageManager
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        corepack enable
+        # Triggers download/activation of the pnpm version pinned in
+        # the consumer's package.json `packageManager` field.
+        pnpm --version
+
+    - name: Cache pnpm store
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+      with:
+        path: ~/.local/share/pnpm/store
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles(format('{0}/pnpm-lock.yaml', inputs.working-directory)) }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Download .npmrc artifact
+      if: ${{ inputs.download-npmrc == 'true' }}
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+      continue-on-error: true
+      with:
+        name: npmrc
+        path: ${{ inputs.working-directory }}
+
+    - name: pnpm install (frozen lockfile, ignore scripts)
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PROD: ${{ inputs.prod }}
+      run: |
+        if [ "${PROD}" = "true" ]; then
+          pnpm install --frozen-lockfile --ignore-scripts --prod
+        else
+          pnpm install --frozen-lockfile --ignore-scripts
+        fi
