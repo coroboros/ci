@@ -1,0 +1,59 @@
+# gitleaks config — canonical source for the Coroboros stack.
+#
+# Canonical raw URL:
+# https://raw.githubusercontent.com/coroboros/ci/main/security/.gitleaks.toml
+#
+# Reference: https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+
+[extend]
+useDefault = true
+
+# === Stack-specific rules (additive to defaults) ===
+
+[[rules]]
+id = "resend-api-key"
+description = "Resend API key"
+regex = '''re_[A-Za-z0-9]{20,}'''
+keywords = ["re_"]
+
+[[rules]]
+id = "neon-postgres-connection-string"
+description = "Neon Postgres connection string with embedded credentials"
+regex = '''postgres(?:ql)?://[^:\s]+:[^@\s]+@[a-z0-9.-]+\.neon\.tech'''
+keywords = ["neon.tech"]
+
+[[rules]]
+id = "posthog-personal-api-key"
+description = "PostHog personal API key"
+regex = '''phx_[A-Za-z0-9]{40,}'''
+keywords = ["phx_"]
+
+[[rules]]
+id = "github-fine-grained-pat"
+description = "GitHub fine-grained personal access token"
+regex = '''github_pat_[A-Za-z0-9_]{82}'''
+keywords = ["github_pat_"]
+
+# === Allowlist: known placeholders, lockfiles, binaries ===
+
+[allowlist]
+description = "Skip standard placeholders, lockfiles, and binary assets"
+
+regexes = [
+  '''sk-ant-XXXX''',
+  '''sk-ant-api03-XXX''',
+  '''ghp_XXXX''',
+  '''AKIA[X]{16}''',
+  '''<[a-zA-Z_-]*?(api[_-]?)?key[_-]?(here)?>''',
+  '''YOUR_API_KEY_HERE''',
+  '''YOUR_TOKEN_HERE''',
+  '''xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx''',
+  # Local hook bypass env vars — they are flag names, not secret values.
+  '''CLAUDE_ALLOW_(LEAK|AI_FOOTER|TAG|PROTECTED_PUSH|SECRET_SCAN)=1''',
+]
+
+paths = [
+  '''.*\.(jpg|jpeg|png|gif|webp|svg|ico|woff2?|ttf|eot|mp3|mp4|wav|pdf)$''',
+  '''.*(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|poetry\.lock|uv\.lock|go\.sum|composer\.lock|Gemfile\.lock)$''',
+  '''.*\.gitleaks\.toml$''',
+]

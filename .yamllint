@@ -1,0 +1,8 @@
+extends: default
+
+rules:
+  document-start: disable
+  line-length: disable
+  # GitHub Actions uses `on:` as a top-level key — accept it as truthy alongside true/false/yes/no.
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off', 'yes', 'no']

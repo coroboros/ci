@@ -1,0 +1,219 @@
+# Three jobs gated by the trigger event:
+#   preflight  if branch  — install + lint + build + test
+#   publish    if tag     — install + lint + build + test + pin version + publish + GitHub release + notify
+#   security   always     — calls security.yml (reusable sub-workflow)
+#
+# Pull requests are not excluded at this workflow level — consumers wire `on: push: branches: [...]; tags: ['*']`
+# in their own caller workflow; this reusable workflow runs as a job within whatever the caller picks up.
+name: JavaScript NPM Packages CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Fallback Node.js version when no `.node-version` file is present at the consumer repo root.
+        type: string
+        required: false
+        default: ""
+      provenance:
+        description: When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` to fall back to publishing with `NPM_PACKAGE_REGISTRY_TOKEN` as `NODE_AUTH_TOKEN`.
+        type: boolean
+        required: false
+        default: true
+    secrets:
+      NPM_CONFIG_FILE:
+        required: true
+      NPM_PACKAGE_REGISTRY:
+        required: true
+      NPM_PACKAGE_PROXY_REGISTRY:
+        required: true
+      NPM_PACKAGE_REGISTRY_TOKEN:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+      GOOGLE_CHAT_WEBHOOK_URL:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  CI_TEXT_RED: "\e[31m"
+  CI_TEXT_GREEN: "\e[32m"
+  CI_TEXT_CLEAR: "\e[0m"
+
+jobs:
+  preflight:
+    if: ${{ github.ref_type == 'branch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - id: setup
+        uses: coroboros/ci/.github/actions/setup-base@v0
+        with:
+          node-version: ${{ inputs.node-version }}
+          npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
+      - name: Lint
+        shell: bash
+        run: pnpm run lint
+      - name: Build
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "$(jq .scripts.build package.json)" != "null" ]; then
+            pnpm run build
+          else
+            printf '%b\n' "${CI_TEXT_GREEN}Non required script 'build' skipped${CI_TEXT_CLEAR}"
+          fi
+      - name: Test
+        shell: bash
+        run: pnpm test
+
+  publish:
+    if: ${{ github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # for GitHub Release creation
+      id-token: write   # for npm OIDC Trusted Publisher
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - id: setup
+        uses: coroboros/ci/.github/actions/setup-base@v0
+        with:
+          node-version: ${{ inputs.node-version }}
+          npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
+
+      - name: Lint
+        shell: bash
+        run: pnpm run lint
+
+      - name: Build
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "$(jq .scripts.build package.json)" != "null" ]; then
+            pnpm run build
+          else
+            printf '%b\n' "${CI_TEXT_GREEN}Non required script 'build' skipped${CI_TEXT_CLEAR}"
+          fi
+
+      - name: Test
+        shell: bash
+        run: pnpm test
+
+      - name: Pin package.json to tag
+        shell: bash
+        run: pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"
+
+      - name: Extract CHANGELOG entry for tag
+        id: changelog
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          body="$(awk -v ver="$tag" '
+            $0 ~ "^## v?"ver"( |$)" { flag=1; next }
+            /^## / { if (flag) exit; flag=0 }
+            flag { print }
+          ' CHANGELOG.md)"
+
+          if [ -z "$body" ]; then
+            printf '%b\n' "${CI_TEXT_RED}No CHANGELOG entry found for ${tag} — expected '## v${tag}' or '## ${tag}' section in CHANGELOG.md${CI_TEXT_CLEAR}"
+            exit 1
+          fi
+
+          {
+            echo "body<<CHANGELOG_EOF"
+            printf '%s\n' "$body"
+            echo "CHANGELOG_EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: pnpm publish (OIDC + NPM_PACKAGE_REGISTRY_TOKEN fallback)
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
+          WITH_PROVENANCE: ${{ inputs.provenance }}
+        run: |
+          if [ "${WITH_PROVENANCE}" = "true" ]; then
+            pnpm publish --provenance --no-git-checks
+          else
+            pnpm publish --no-git-checks
+          fi
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ steps.changelog.outputs.body }}
+        run: |
+          notes="$(mktemp)"
+          printf '%s' "${BODY}" > "${notes}"
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file "${notes}"
+          rm -f "${notes}"
+
+      - name: Notify Slack
+        if: ${{ always() }}
+        shell: bash
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL}" ]; then
+            echo "SLACK_WEBHOOK_URL not set — skipping Slack notification"
+            exit 0
+          fi
+          payload="$(jq -nc \
+            --arg project "${GITHUB_REPOSITORY}" \
+            --arg ref "${GITHUB_REF_NAME}" \
+            --arg author "${GITHUB_ACTOR}" \
+            --arg url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            '{
+              blocks: [
+                { type: "header", text: { type: "plain_text", text: $project } },
+                { type: "section", fields: [
+                  { type: "mrkdwn", text: ("*Ref*\n" + $ref) },
+                  { type: "mrkdwn", text: ("*Author*\n" + $author) }
+                ]},
+                { type: "section", text: { type: "mrkdwn", text: ("<" + $url + "|View project>") } }
+              ]
+            }')"
+          curl -sS -X POST "${SLACK_WEBHOOK_URL}" \
+            --header "Content-Type: application/json; charset=utf-8" \
+            --data "${payload}"
+
+      - name: Notify Google Chat
+        if: ${{ always() }}
+        shell: bash
+        continue-on-error: true
+        env:
+          GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+        run: |
+          if [ -z "${GOOGLE_CHAT_WEBHOOK_URL}" ]; then
+            echo "GOOGLE_CHAT_WEBHOOK_URL not set — skipping Google Chat notification"
+            exit 0
+          fi
+          payload="$(jq -nc \
+            --arg project "${GITHUB_REPOSITORY}" \
+            --arg ref "${GITHUB_REF_NAME}" \
+            --arg author "${GITHUB_ACTOR}" \
+            --arg url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            '{
+              cards: [{
+                header: { title: $project },
+                sections: [{
+                  widgets: [
+                    { keyValue: { topLabel: "Ref",    content: $ref } },
+                    { keyValue: { topLabel: "Author", content: $author } },
+                    { buttons: [{ textButton: { text: "View project", onClick: { openLink: { url: $url } } } }] }
+                  ]
+                }]
+              }]
+            }')"
+          curl -sS -X POST "${GOOGLE_CHAT_WEBHOOK_URL}&threadKey=${GITHUB_EVENT_REPOSITORY_NAME:-${GITHUB_REPOSITORY##*/}}" \
+            --header "Content-Type: application/json; charset=utf-8" \
+            --data "${payload}"
+
+  security:
+    uses: ./.github/workflows/security.yml

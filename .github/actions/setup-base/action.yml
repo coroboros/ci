@@ -1,0 +1,87 @@
+name: setup-base
+description: Base setup for an npm pipeline job — resolves Node.js version, sets up Node + corepack + pnpm cache, generates `.npmrc` from the consumer's secret blob, runs `pnpm install --frozen-lockfile --ignore-scripts`. Logs the GitHub run context.
+
+inputs:
+  node-version:
+    description: Fallback Node.js version when no `.node-version` file is present at the repo root.
+    required: false
+    default: ""
+  npm-config-file:
+    description: Full content of the `.npmrc` to drop at the repo root (typically passed from the caller's `secrets.NPM_CONFIG_FILE`).
+    required: true
+
+outputs:
+  node-version:
+    description: Resolved Node.js version (no `v` prefix).
+    value: ${{ steps.resolve.outputs.node-version }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      name: Resolve base config + log run context
+      shell: bash
+      env:
+        INPUT_NODE_VERSION: ${{ inputs.node-version }}
+        VAR_NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+      run: |
+        printf '%b\n' "${CI_TEXT_GREEN}Run context:${CI_TEXT_CLEAR}"
+        echo "  GITHUB_REF_NAME       | ${GITHUB_REF_NAME}"
+        echo "  GITHUB_REF_SLUG       | $(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | head -c 63 | sed 's/-$//')"
+        echo "  GITHUB_REF_TYPE       | ${GITHUB_REF_TYPE}"
+        echo "  GITHUB_REPOSITORY     | ${GITHUB_REPOSITORY}"
+        echo "  GITHUB_SERVER_URL     | ${GITHUB_SERVER_URL}"
+        echo "  GITHUB_REPOSITORY_URL | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+
+        if [ -f .node-version ]; then
+          node_version="$(tr -d '[:space:]v' < .node-version)"
+          node_source=".node-version"
+        elif [ -n "${INPUT_NODE_VERSION}" ]; then
+          node_version="${INPUT_NODE_VERSION}"
+          node_source="node-version input"
+        else
+          printf '%b\n' "${CI_TEXT_RED}Node.js version is required: provide a .node-version file at the repo root or pass the node-version input.${CI_TEXT_CLEAR}"
+          exit 1
+        fi
+        printf '%b\n' "${CI_TEXT_GREEN}Resolved Node.js version: ${node_version} (from ${node_source})${CI_TEXT_CLEAR}"
+        echo "node-version=${node_version}" >> "${GITHUB_OUTPUT}"
+
+    - name: Setup Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+      with:
+        node-version: ${{ steps.resolve.outputs.node-version }}
+
+    - name: Enable corepack + activate pnpm
+      shell: bash
+      run: |
+        corepack enable
+        pnpm --version
+
+    - name: Cache pnpm store
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+      with:
+        path: ~/.local/share/pnpm/store
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Generate .npmrc at repo root
+      shell: bash
+      env:
+        NPM_CONFIG_FILE_CONTENT: ${{ inputs.npm-config-file }}
+        VAR_NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+      run: |
+        printf '%s' "${NPM_CONFIG_FILE_CONTENT}" > .npmrc
+        if [ -n "${VAR_NPM_EXTRA_CONFIG}" ]; then
+          printf '\n%s\n' "${VAR_NPM_EXTRA_CONFIG}" >> .npmrc
+        fi
+
+    - name: README check
+      shell: bash
+      run: |
+        [ -f README.md ] || (printf '%b\n' "${CI_TEXT_RED}A README.md file must be present at project root${CI_TEXT_CLEAR}" && exit 1)
+        printf '%b\n' "${CI_TEXT_GREEN}README.md present${CI_TEXT_CLEAR}"
+
+    - name: pnpm install (frozen lockfile, ignore scripts)
+      shell: bash
+      run: pnpm install --frozen-lockfile --ignore-scripts

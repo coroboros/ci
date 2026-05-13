@@ -1,0 +1,130 @@
+# Single container for ALL security scans: gitleaks today (fail-fast on real leaks),
+# container scanning / SAST / dep audit later — each landing at its proper stage.
+#
+# Consumers call it via:
+#   jobs:
+#     security:
+#       uses: coroboros/ci/.github/workflows/security.yml@v0
+#
+# gitleaks is invoked via the upstream CLI directly — the `gitleaks/gitleaks-action@v2`
+# action requires a paid gitleaks.io license for GitHub organizations.
+name: Security
+
+on:
+  workflow_call:
+    inputs:
+      config-path:
+        description: Path to the gitleaks config inside the calling repo (defaults to security/.gitleaks.toml).
+        type: string
+        required: false
+        default: security/.gitleaks.toml
+      gitleaks-version:
+        description: Pinned gitleaks CLI version (without leading `v`).
+        type: string
+        required: false
+        default: "8.30.1"
+      gitleaks-sha256:
+        description: SHA-256 of `gitleaks_<version>_linux_x64.tar.gz` for checksum verification. Empty = skip (warns).
+        type: string
+        required: false
+        default: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+      fail-on-leak:
+        description: Fail the job when leaks are found.
+        type: boolean
+        required: false
+        default: true
+      scan-mode:
+        description: gitleaks subcommand. `git` walks history; `dir` scans the working tree.
+        type: string
+        required: false
+        default: git
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch shared gitleaks config
+        shell: bash
+        env:
+          CONFIG_PATH: ${{ inputs.config-path }}
+        run: |
+          if [ -f "${CONFIG_PATH}" ]; then
+            echo "Using local config at ${CONFIG_PATH}"
+          else
+            mkdir -p "$(dirname "${CONFIG_PATH}")"
+            curl -fsSL \
+              "https://raw.githubusercontent.com/coroboros/ci/main/security/.gitleaks.toml" \
+              -o "${CONFIG_PATH}"
+            echo "Downloaded shared config to ${CONFIG_PATH}"
+          fi
+
+      - name: Install gitleaks
+        shell: bash
+        env:
+          GITLEAKS_VERSION: ${{ inputs.gitleaks-version }}
+          GITLEAKS_SHA256: ${{ inputs.gitleaks-sha256 }}
+        run: |
+          tmp="$(mktemp -d)"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}" \
+            -o "${tmp}/${tarball}"
+          if [ -n "${GITLEAKS_SHA256}" ]; then
+            echo "${GITLEAKS_SHA256}  ${tmp}/${tarball}" | sha256sum -c -
+          else
+            echo "::warning::gitleaks-sha256 input is empty — skipping checksum verification. Pass the SHA-256 from the gitleaks_${GITLEAKS_VERSION}_checksums.txt release asset for end-to-end integrity."
+          fi
+          tar -xzf "${tmp}/${tarball}" -C "${tmp}" gitleaks
+          sudo install -m 0755 "${tmp}/gitleaks" /usr/local/bin/gitleaks
+          rm -rf "${tmp}"
+          gitleaks version
+
+      - name: Run gitleaks
+        id: scan
+        shell: bash
+        env:
+          CONFIG_PATH: ${{ inputs.config-path }}
+          FAIL_ON_LEAK: ${{ inputs.fail-on-leak }}
+          SCAN_MODE: ${{ inputs.scan-mode }}
+        run: |
+          set +e
+          gitleaks "${SCAN_MODE}" \
+            --config "${CONFIG_PATH}" \
+            --no-banner \
+            --redact \
+            --report-format sarif \
+            --report-path results.sarif \
+            --exit-code 2
+          rc=$?
+          set -e
+
+          echo "gitleaks exit code: ${rc}"
+          echo "exit-code=${rc}" >> "${GITHUB_OUTPUT}"
+
+          if [ "${rc}" = "0" ]; then
+            echo "::notice::gitleaks: no leaks found"
+          elif [ "${rc}" = "2" ]; then
+            echo "::error::gitleaks: leaks detected — see results.sarif artifact"
+            if [ "${FAIL_ON_LEAK}" = "true" ]; then
+              exit 1
+            fi
+          else
+            echo "::error::gitleaks: scan failed with exit code ${rc}"
+            exit "${rc}"
+          fi
+
+      - name: Upload SARIF report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: gitleaks-report
+          path: results.sarif
+          if-no-files-found: ignore
+          retention-days: 30
