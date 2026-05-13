@@ -57,7 +57,7 @@ jobs:
 
 | Action | Purpose |
 | :----- | :------ |
-| `javascript/base` | Base setup for a JavaScript pipeline job — `.node-version` resolution (else `DEFAULT_NODE_VERSION`, default `22`) + Node setup + corepack + pnpm store cache + `.npmrc` generation (`NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`. Called by the `preflight` and `publish` jobs of the bundled workflow; reusable directly when composing your own pipeline. |
+| `javascript/base` | Base setup for a JavaScript pipeline job — `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation (`NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`. Called by the `preflight` and `publish` jobs of the bundled workflow; reusable directly when composing your own pipeline. |
 
 ## Usage
 

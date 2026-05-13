@@ -13,7 +13,7 @@ Each job runs all its steps in a **single runner** — no inter-job artifacts, n
 ## `preflight` (branches)
 
 1. `actions/checkout`.
-2. `javascript/base` — `.node-version` resolution (else `DEFAULT_NODE_VERSION=22`) + `actions/setup-node` + corepack + pnpm store cache + `.npmrc` generation (from `NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`.
+2. `javascript/base` — `.node-version` resolution (required; fail if missing) + `actions/setup-node` + corepack + pnpm store cache + `.npmrc` generation (from `NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`.
 3. `pnpm run lint`.
 4. `pnpm run build` (only if `scripts.build` exists in `package.json`; otherwise logs `Non required script 'build' skipped` in green).
 5. `pnpm test`.

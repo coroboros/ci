@@ -12,7 +12,7 @@
 - Self-CI workflows: `ci.yml` (`actionlint`, `yamllint`, `shellcheck`) and `ci-security.yml` (calls `security.yml` on push + PR + weekly schedule).
 
 ### Configuration
-- pnpm via corepack (resolved from the consumer's `package.json` `packageManager` field). Node version resolved from the consumer's `.node-version` file; falls back to `DEFAULT_NODE_VERSION` (`22`) hardcoded in `javascript/base`.
+- pnpm via corepack (resolved from the consumer's `package.json` `packageManager` field). Node version resolved from the consumer's `.node-version` file — required convention; the job fails if missing.
 - `NPM_PACKAGE_REGISTRY_TOKEN` is the single npm token: install-time registry auth when the registry is private, publish-time `NODE_AUTH_TOKEN` when `provenance: false`. Set per-repo only when needed.
 - Env-var-style settings (`NPM_EXTRA_CONFIG`) cascade via the caller's `vars` context.
 - Workflow input: `provenance` (publish behavior toggle, default `true`).

@@ -20,7 +20,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - `.github/workflows/security.yml` — reusable sub-workflow running gitleaks. Called internally by `javascript-npm-packages.yml` AND directly by standalone consumers / `ci-security.yml`.
 - `.github/workflows/ci.yml` — self-CI: `actionlint`, `yamllint`, `shellcheck`.
 - `.github/workflows/ci-security.yml` — self-CI: calls `security.yml` on push + PR + weekly schedule.
-- `.github/actions/javascript/base/action.yml` — the only composite action. Base setup for a JavaScript pipeline job: `.node-version` resolution (else `DEFAULT_NODE_VERSION=22`) + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install`. Called by `preflight` and `publish`.
+- `.github/actions/javascript/base/action.yml` — the only composite action. Base setup for a JavaScript pipeline job: `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install`. Called by `preflight` and `publish`.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
 - `docs/{examples,environment-variables,flow,security,stages}.md`.
 

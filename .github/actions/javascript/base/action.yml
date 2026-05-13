@@ -18,8 +18,6 @@ runs:
     - id: resolve
       name: Resolve Node.js version + log run context
       shell: bash
-      env:
-        DEFAULT_NODE_VERSION: "22"
       run: |
         echo "Run context:"
         echo "  GITHUB_REF_NAME       | ${GITHUB_REF_NAME}"
@@ -29,14 +27,12 @@ runs:
         echo "  GITHUB_SERVER_URL     | ${GITHUB_SERVER_URL}"
         echo "  GITHUB_REPOSITORY_URL | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
 
-        if [ -f .node-version ]; then
-          node_version="$(tr -d '[:space:]v' < .node-version)"
-          node_source=".node-version"
-        else
-          node_version="${DEFAULT_NODE_VERSION}"
-          node_source="DEFAULT_NODE_VERSION"
+        if [ ! -f .node-version ]; then
+          echo "::error::.node-version file is required at the repo root"
+          exit 1
         fi
-        echo "Resolved Node.js version: ${node_version} (from ${node_source})"
+        node_version="$(tr -d '[:space:]v' < .node-version)"
+        echo "Resolved Node.js version: ${node_version} (from .node-version)"
         echo "node-version=${node_version}" >> "${GITHUB_OUTPUT}"
 
     - name: Setup Node.js
