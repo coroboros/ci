@@ -45,6 +45,7 @@ runs:
       env:
         REQUIRE_BUILD: ${{ inputs.require-build }}
         CI_TEXT_RED: "\e[31m"
+        CI_TEXT_GREEN: "\e[32m"
         CI_TEXT_CLEAR: "\e[0m"
       run: |
         mkdir -p dist
@@ -59,7 +60,7 @@ runs:
           pnpm install --frozen-lockfile --ignore-scripts || exit 1
           pnpm run build
         else
-          echo "Non required script 'build' skipped"
+          printf '%b\n' "${CI_TEXT_GREEN}Non required script 'build' skipped${CI_TEXT_CLEAR}"
         fi
 
     - name: Upload dist artifact

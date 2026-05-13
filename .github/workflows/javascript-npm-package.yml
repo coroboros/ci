@@ -34,7 +34,7 @@ on:
       NPM_PACKAGE_PROXY_REGISTRY:
         required: true
       NPM_PACKAGE_REGISTRY_TOKEN:
-        required: true
+        required: false
       SLACK_WEBHOOK_URL:
         required: false
       GOOGLE_CHAT_WEBHOOK_URL:

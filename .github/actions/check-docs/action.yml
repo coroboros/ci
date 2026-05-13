@@ -8,9 +8,11 @@ runs:
       shell: bash
       env:
         CI_TEXT_RED: "\e[31m"
+        CI_TEXT_GREEN: "\e[32m"
         CI_TEXT_CLEAR: "\e[0m"
       run: |
         echo "CI_COMMIT_REF_NAME    | ${GITHUB_REF_NAME}"
         echo "CI_COMMIT_REF_SLUG    | $(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | head -c 63 | sed 's/-$//')"
         echo "PROJECT_BASE          | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
         [ -f README.md ] || (printf '%b\n' "${CI_TEXT_RED}A README.md file must be present at project root${CI_TEXT_CLEAR}" && exit 1)
+        printf '%b\n' "${CI_TEXT_GREEN}README.md present${CI_TEXT_CLEAR}"

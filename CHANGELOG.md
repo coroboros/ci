@@ -3,12 +3,16 @@
 ## v0.1.1 - 13/05/2026
 
 ### Breaking changes
-- `NPM_TOKEN` secret removed from `javascript-npm-package.yml`. `NPM_PACKAGE_REGISTRY_TOKEN` now does double duty: install-time registry auth on every run, and `NODE_AUTH_TOKEN` at publish time when `provenance: false`. Consumers passing `NPM_TOKEN` must drop that line and ensure the `NPM_PACKAGE_REGISTRY_TOKEN` value has publish scope.
+- `NPM_TOKEN` secret removed from `javascript-npm-package.yml`. `NPM_PACKAGE_REGISTRY_TOKEN` now does double duty: install-time registry auth when the registry is private, and `NODE_AUTH_TOKEN` at publish time when `provenance: false`. Consumers passing `NPM_TOKEN` must drop that line.
+- `NPM_PACKAGE_REGISTRY_TOKEN` is now `required: false` on `javascript-npm-package.yml`'s `secrets:` block. OIDC Trusted Publisher repos (`provenance: true`, default) don't need to pass it. Repos on token-based publish (`provenance: false`) must set it per-repo.
+
+### Features
+- `CI_TEXT_GREEN` env added to composite actions that emit colored output (`check-docs`, `build-js`), alongside the existing `CI_TEXT_RED` / `CI_TEXT_CLEAR`. Brings the action's color palette in line with the GitLab origin's `CI_TEXT_*` set. Used today for the `check-docs` success message and the `build-js` "no `build` script" info line.
 
 ### Documentation
 - `README.md`, `docs/examples.md` — quick-start and composing examples updated; `NPM_TOKEN` references removed.
-- `docs/environment-variables.md` — `NPM_TOKEN` row removed from the NPM table; `NPM_PACKAGE_REGISTRY_TOKEN` description notes the dual-use.
-- `docs/security.md` — Publish section rewritten around the single-token model.
+- `docs/environment-variables.md` — `NPM_TOKEN` row removed from the NPM table; `NPM_PACKAGE_REGISTRY_TOKEN` row marks the secret as optional and documents the per-repo-only setup.
+- `docs/security.md` — Publish section rewritten around the single-token model; per-repo-only setup for `NPM_PACKAGE_REGISTRY_TOKEN` documented.
 
 ## v0.1.0 - 13/05/2026
 

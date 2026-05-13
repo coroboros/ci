@@ -23,7 +23,7 @@ Each variable below is passed either as a **secret** (`secrets:` block on `workf
 | `NPM_CONFIG_FILE` | secret | `.npmrc` content, consumed by `setup-npmrc`. | X | none |
 | `NPM_PACKAGE_REGISTRY` | secret | npm package registry URL. | X | none |
 | `NPM_PACKAGE_PROXY_REGISTRY` | secret | npm package proxy registry URL. | X | none |
-| `NPM_PACKAGE_REGISTRY_TOKEN` | secret | npm package registry token. Used for install-time auth on every run, and as `NODE_AUTH_TOKEN` at publish time when `provenance: false`. | X | none |
+| `NPM_PACKAGE_REGISTRY_TOKEN` | secret | npm package registry token. Used for install-time auth when the registry is private, and as `NODE_AUTH_TOKEN` at publish time when `provenance: false`. **Set per-repo only when needed** — leaving it unset at the org level keeps OIDC Trusted Publisher repos token-free. | | none |
 
 ## Notifications — `notify` (called from `javascript-npm-package`)
 
