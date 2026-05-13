@@ -2,11 +2,6 @@
 name: javascript-base
 description: Base setup for a JavaScript pipeline job.
 
-inputs:
-  npm-config-file:
-    description: Full content of the `.npmrc` to drop at the repo root (typically passed from the caller's `secrets.NPM_CONFIG_FILE`).
-    required: true
-
 outputs:
   node-version:
     description: Resolved Node.js version (no `v` prefix).
@@ -56,13 +51,14 @@ runs:
 
     - name: Generate .npmrc at repo root
       shell: bash
-      env:
-        NPM_CONFIG_FILE_CONTENT: ${{ inputs.npm-config-file }}
-        VAR_NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
       run: |
-        printf '%s' "${NPM_CONFIG_FILE_CONTENT}" > .npmrc
-        if [ -n "${VAR_NPM_EXTRA_CONFIG}" ]; then
-          printf '\n%s\n' "${VAR_NPM_EXTRA_CONFIG}" >> .npmrc
+        if [ -z "${NPM_CONFIG_FILE}" ]; then
+          echo "::error::NPM_CONFIG_FILE env var is required (set at workflow level from secrets.NPM_CONFIG_FILE)"
+          exit 1
+        fi
+        printf '%s' "${NPM_CONFIG_FILE}" > .npmrc
+        if [ -n "${NPM_EXTRA_CONFIG}" ]; then
+          printf '\n%s\n' "${NPM_EXTRA_CONFIG}" >> .npmrc
         fi
 
     - name: README check

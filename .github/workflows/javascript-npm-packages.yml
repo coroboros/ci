@@ -26,6 +26,10 @@ on:
 permissions:
   contents: read
 
+env:
+  NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
+  NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+
 jobs:
   preflight:
     if: ${{ github.ref_type == 'branch' }}
@@ -34,8 +38,6 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - id: setup
         uses: coroboros/ci/.github/actions/javascript/base@v0
-        with:
-          npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
       - name: Lint
         shell: bash
         run: pnpm run lint
@@ -63,8 +65,6 @@ jobs:
 
       - id: setup
         uses: coroboros/ci/.github/actions/javascript/base@v0
-        with:
-          npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
 
       - name: Lint
         shell: bash

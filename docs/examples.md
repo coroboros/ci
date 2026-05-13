@@ -68,14 +68,11 @@ jobs:
     permissions:
       contents: read
     env:
-      CI_TEXT_RED: "\e[31m"
-      CI_TEXT_GREEN: "\e[32m"
-      CI_TEXT_CLEAR: "\e[0m"
+      NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
+      NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
     steps:
       - uses: actions/checkout@v4
       - uses: coroboros/ci/.github/actions/javascript/base@v0
-        with:
-          npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
       - run: pnpm run my-custom-script
         shell: bash
 ```
