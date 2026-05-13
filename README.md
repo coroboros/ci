@@ -56,16 +56,18 @@ jobs:
 
 Each composite action under `.github/actions/` is a single pipeline step. Use them to assemble a custom pipeline when the bundled workflows do not fit:
 
+Two-tier layout: generic actions at `.github/actions/<name>/`, language-specific actions under `.github/actions/javascript/npm/<name>/`.
+
 | Action | Purpose |
 | :----- | :------ |
 | `setup-base` | Resolve the common pipeline configuration — Node.js version (from `.node-version` else input else fail), release-branch / release-source-commit patterns (from `vars` else default), `npm-extra-config` (from `vars`). Run once in the workflow's `base` job; downstream jobs and actions inherit via `needs.base.outputs.*`. |
 | `check-docs` | Fail the job if `README.md` is missing at the repo root. |
-| `setup-npmrc` | Generate `.npmrc` files from secrets, upload them as an artifact. |
-| `pnpm-install` | Corepack-enabled `pnpm install --frozen-lockfile --ignore-scripts`. |
-| `build-js` | Run the pnpm build script if present; upload `dist/` as an artifact. |
-| `build-version` | Extract the SemVer version from tag / branch / commit and pin `package.json`. |
 | `notify-slack` | Post a deployment notification to a Slack webhook. |
 | `notify-gchat` | Post a deployment notification to a Google Chat webhook. |
+| `javascript/npm/setup-npmrc` | Generate `.npmrc` files from secrets, upload them as an artifact. |
+| `javascript/npm/pnpm-install` | Corepack-enabled `pnpm install --frozen-lockfile --ignore-scripts`. |
+| `javascript/npm/build-js` | Run the pnpm build script if present; upload `dist/` as an artifact. |
+| `javascript/npm/build-version` | Extract the SemVer version from tag / branch / commit and pin `package.json`. |
 
 ## Usage
 

@@ -3,13 +3,11 @@ description: Extract the SemVer version from tag / branch / commit and pin packa
 
 inputs:
   release-branch-pattern:
-    description: ERE-style pattern for release branches. Defaults to SemVer release branch.
-    required: false
-    default: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+    description: ERE-style pattern for release branches.
+    required: true
   release-source-commit-pattern:
     description: ERE-style pattern for the release-source merge commit message.
-    required: false
-    default: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
+    required: true
   node-version:
     description: Node.js version to set up.
     required: true

@@ -23,7 +23,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 ## Important files
 
 - `.github/workflows/*.yml` — one entry-point reusable workflow (`javascript-npm-packages`), two sub-workflows (`security`, `notify`), two self-CI (`ci`, `ci-security`).
-- `.github/actions/*/action.yml` — eight composite actions: `setup-base` (the base step — resolves Node.js version + release patterns + npm-extra-config from `.node-version` / `vars` / defaults; called as the first `base` job of every entry-point workflow), `check-docs`, `setup-npmrc`, `pnpm-install`, `build-js`, `build-version`, `notify-slack`, `notify-gchat`.
+- `.github/actions/` — composite actions in a two-tier layout. Generic ones at the top level: `setup-base` (the base step — resolves Node.js version + release patterns + npm-extra-config from `.node-version` / `vars` / defaults; called as the first `base` job of every entry-point workflow), `check-docs`, `notify-slack`, `notify-gchat`. Language-specific ones under `javascript/npm/`: `setup-npmrc`, `pnpm-install`, `build-js`, `build-version`.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
 - `docs/examples.md`, `docs/environment-variables.md`, `docs/flow.md`, `docs/stages.md`, `docs/security.md`.
 

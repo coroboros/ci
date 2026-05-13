@@ -1,5 +1,16 @@
-# Pipeline: base -> check-docs / setup-npmrc -> check-lint -> build-js -> build-version (tag) -> test-unit -> deploy-package (tag) -> notify (tag).
-# Pull requests are excluded by the top-level on: block of each reusable workflow.
+# Pipeline (mirrors the GitLab origin's stage order):
+#   base -> setup -> check -> build -> test -> deploy -> notify
+#
+# Stages exercised:
+#   base        — base job (setup-base composite action)
+#   setup       — setup-npmrc
+#   check       — check-docs, check-npm-lint
+#   build       — build-js, build-version (tag)
+#   test        — test-npm-unit
+#   deploy      — deploy-package (tag)
+#   notify      — notify sub-workflow (tag)
+#
+# Pull requests are excluded by the top-level `on:` block of each reusable workflow.
 name: JavaScript NPM Packages CI
 
 on:
@@ -47,28 +58,29 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
 
-  check-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/check-docs@v0
-
   setup-npmrc:
     runs-on: ubuntu-latest
-    needs: [base, check-docs]
+    needs: [base]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/setup-npmrc@v0
+      - uses: coroboros/ci/.github/actions/javascript/npm/setup-npmrc@v0
         with:
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
           npm-extra-config: ${{ needs.base.outputs.npm-extra-config }}
+
+  check-docs:
+    runs-on: ubuntu-latest
+    needs: [setup-npmrc]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/check-docs@v0
 
   check-npm-lint:
     runs-on: ubuntu-latest
     needs: [base, setup-npmrc]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/pnpm-install@v0
+      - uses: coroboros/ci/.github/actions/javascript/npm/pnpm-install@v0
         with:
           node-version: ${{ needs.base.outputs.node-version }}
       - run: pnpm run lint
@@ -76,22 +88,22 @@ jobs:
 
   build-js:
     runs-on: ubuntu-latest
-    needs: [base, setup-npmrc]
+    needs: [base, check-docs, check-npm-lint]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/build-js@v0
+      - uses: coroboros/ci/.github/actions/javascript/npm/build-js@v0
         with:
           node-version: ${{ needs.base.outputs.node-version }}
 
   build-version:
     runs-on: ubuntu-latest
-    needs: [base, setup-npmrc]
+    needs: [base, check-docs, check-npm-lint]
     if: |
       github.ref_type == 'tag'
       || contains(github.event.head_commit.message, 'Merge branch ''release/')
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/build-version@v0
+      - uses: coroboros/ci/.github/actions/javascript/npm/build-version@v0
         with:
           release-branch-pattern: ${{ needs.base.outputs.release-branch-pattern }}
           release-source-commit-pattern: ${{ needs.base.outputs.release-source-commit-pattern }}
@@ -99,10 +111,11 @@ jobs:
 
   test-npm-unit:
     runs-on: ubuntu-latest
-    needs: [base, build-js]
+    needs: [base, build-js, build-version]
+    if: always() && needs.build-js.result == 'success' && (needs.build-version.result == 'success' || needs.build-version.result == 'skipped')
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/pnpm-install@v0
+      - uses: coroboros/ci/.github/actions/javascript/npm/pnpm-install@v0
         with:
           node-version: ${{ needs.base.outputs.node-version }}
       - run: pnpm test
@@ -110,7 +123,7 @@ jobs:
 
   deploy-package:
     runs-on: ubuntu-latest
-    needs: [base, build-js, build-version, test-npm-unit]
+    needs: [base, test-npm-unit, build-js, build-version]
     if: ${{ github.ref_type == 'tag' }}
     permissions:
       id-token: write   # required for npm OIDC Trusted Publisher.

@@ -88,14 +88,14 @@ jobs:
         uses: coroboros/ci/.github/actions/setup-base@v0
         with:
           node-version: "22"   # fallback when .node-version is absent
-      - uses: coroboros/ci/.github/actions/setup-npmrc@v0
+      - uses: coroboros/ci/.github/actions/javascript/npm/setup-npmrc@v0
         with:
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
           npm-extra-config: ${{ steps.base.outputs.npm-extra-config }}
-      - uses: coroboros/ci/.github/actions/build-js@v0
+      - uses: coroboros/ci/.github/actions/javascript/npm/build-js@v0
         with:
           node-version: ${{ steps.base.outputs.node-version }}
-      - uses: coroboros/ci/.github/actions/build-version@v0
+      - uses: coroboros/ci/.github/actions/javascript/npm/build-version@v0
         with:
           node-version: ${{ steps.base.outputs.node-version }}
           release-branch-pattern: ${{ steps.base.outputs.release-branch-pattern }}

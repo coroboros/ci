@@ -18,7 +18,14 @@
 - `docs/examples.md` — quick-start references `javascript-npm-packages.yml`; composing example threads the resolved base configuration through `setup-npmrc`, `build-js`, `build-version` via `setup-base` outputs.
 - `docs/environment-variables.md` — Common section keeps only `node-version` (the only declared input besides `provenance`); env-var-style settings live under `vars` context.
 - `docs/security.md` — Publish section describes the single-token model and the per-repo-only setup for `NPM_PACKAGE_REGISTRY_TOKEN`.
-- `CLAUDE.md` — file inventory updated for the rename and the eight composite actions (with `setup-base` as the base step).
+- `CLAUDE.md` — file inventory updated for the rename and the eight composite actions (with `setup-base` as the base step, and language-specific actions grouped under `javascript/npm/`).
+
+### Layout
+- Composite actions split into two tiers:
+  - Generic (`.github/actions/<name>/`): `setup-base`, `check-docs`, `notify-slack`, `notify-gchat`.
+  - JavaScript-specific (`.github/actions/javascript/npm/<name>/`): `setup-npmrc`, `pnpm-install`, `build-js`, `build-version`.
+- Workflow `needs:` graph mirrors the GitLab stage order: `base → setup-npmrc → check-docs / check-npm-lint → build-js / build-version → test-npm-unit → deploy-package → notify`.
+- `build-version`, `notify-slack`, `notify-gchat` mark the release pattern inputs as `required: true` with no defaults. The workflow's `base` job is the single source.
 
 ## v0.1.0 - 13/05/2026
 
