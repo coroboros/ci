@@ -1,4 +1,4 @@
-name: Check README
+name: Check docs
 description: Fail the job if README.md is not present at the repo root.
 
 runs:

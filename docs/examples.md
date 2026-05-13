@@ -32,111 +32,6 @@ jobs:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 ```
 
-### Container Images
-
-The Coroboros default registry is **`ghcr.io`**. With it, the only credential needed is the per-run `GITHUB_TOKEN` — no long-lived registry password to manage:
-
-```yaml
-jobs:
-  ci:
-    uses: coroboros/ci/.github/workflows/container-image.yml@v0
-    permissions:
-      contents: read
-      packages: write   # required for ghcr.io push
-    secrets:
-      IMAGE_REGISTRY: ghcr.io
-      IMAGE_REGISTRY_USER: ${{ github.actor }}
-      IMAGE_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-```
-
-For a custom registry (Docker Hub, ECR, self-hosted), set `IMAGE_REGISTRY` accordingly and provide a static `IMAGE_REGISTRY_USER` / `IMAGE_REGISTRY_PASSWORD`.
-
-### JavaScript Assets
-
-Builds via `pnpm run build`, syncs `dist/` to S3, optionally invalidates CloudFront.
-
-AWS auth supports two modes (the workflow picks based on what you pass):
-
-1. **OIDC (recommended)** — pass `aws-role-dev` / `aws-role-prod` ARNs as inputs; the IAM trust policy on each role must allow `token.actions.githubusercontent.com` for the consumer repo / ref. No long-lived AWS keys.
-2. **Static keys (fallback)** — pass `AWS_ACCESS_KEY_ID_*` / `AWS_SECRET_ACCESS_KEY_*` as secrets.
-
-```yaml
-jobs:
-  ci:
-    uses: coroboros/ci/.github/workflows/javascript-assets.yml@v0
-    with:
-      assets_path: dist
-      cdn_invalidate_cache: 'true'
-      aws-role-dev: arn:aws:iam::111111111111:role/gha-deploy-dev
-      aws-role-prod: arn:aws:iam::222222222222:role/gha-deploy-prod
-    secrets:
-      NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
-      NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
-      NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
-      NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
-      AWS_ACCESS_KEY_ID_DEV: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
-      AWS_SECRET_ACCESS_KEY_DEV: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
-      AWS_ACCESS_KEY_ID_PROD: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-      AWS_SECRET_ACCESS_KEY_PROD: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
-      ASSETS_DESTINATION: ${{ secrets.ASSETS_DESTINATION }}
-      CDN_ID: ${{ secrets.CDN_ID }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-```
-
-### JavaScript Functions
-
-Builds, zips, deploys to AWS Lambda, optionally invokes the function in `post-deploy`.
-
-```yaml
-jobs:
-  ci:
-    uses: coroboros/ci/.github/workflows/javascript-function.yml@v0
-    with:
-      function_name: my-lambda
-      function_invoke: 'true'
-    secrets:
-      NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
-      NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
-      NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
-      NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
-      AWS_ACCESS_KEY_ID_DEV: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
-      AWS_SECRET_ACCESS_KEY_DEV: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
-      AWS_ACCESS_KEY_ID_PROD: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-      AWS_SECRET_ACCESS_KEY_PROD: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-```
-
-### JavaScript Images
-
-Builds a JavaScript project, packages it as a container image.
-
-```yaml
-jobs:
-  ci:
-    uses: coroboros/ci/.github/workflows/javascript-image.yml@v0
-    secrets:
-      NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
-      NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
-      NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
-      NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
-      IMAGE_REGISTRY: ${{ secrets.IMAGE_REGISTRY }}
-      IMAGE_REGISTRY_USER: ${{ secrets.IMAGE_REGISTRY_USER }}
-      IMAGE_REGISTRY_PASSWORD: ${{ secrets.IMAGE_REGISTRY_PASSWORD }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-```
-
-### Node Services
-
-The full service pipeline: npm, container image, multi-environment deploy, optional API tests.
-
-```yaml
-jobs:
-  ci:
-    uses: coroboros/ci/.github/workflows/node-service.yml@v0
-    secrets: inherit   # convenience for services that consume the full secret set
-```
-
 ## Secrets scan as a standalone workflow
 
 ```yaml
@@ -189,7 +84,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: coroboros/ci/.github/actions/check-readme@v0
+      - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/setup-npmrc@v0
         with:
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}

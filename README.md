@@ -24,11 +24,6 @@ GitHub Actions workflows and composite actions. Drop into any `@coroboros/*` rep
 | Workflow | Use case |
 | :------- | :------- |
 | `javascript-npm-package.yml` | npm libraries published to a registry. OIDC `pnpm publish --provenance` with `NPM_TOKEN` fallback. |
-| `javascript-image.yml` | JavaScript projects packaged as container images. |
-| `javascript-assets.yml` | Static assets built with `pnpm run build`, synced to S3, optional CloudFront invalidation. |
-| `javascript-function.yml` | AWS Lambda functions deployed from a zip. |
-| `container-image.yml` | Standalone container images built and pushed with Kaniko. |
-| `node-service.yml` | Node services with multi-environment deploy (`development` / `int` / `production` / dynamic). |
 | `security.yml` | Container for all security scans (gitleaks today, container scanning / SAST / audit later). Reports rather than blocks for late-stage scans; gitleaks remains a fail-fast check on real leaks. |
 | `notify.yml` | Slack + Google Chat notifications on release-triggering refs. |
 
@@ -64,21 +59,11 @@ Each composite action under `.github/actions/` is a single pipeline step. Use th
 
 | Action | Purpose |
 | :----- | :------ |
-| `check-readme` | Fail the job if `README.md` is missing at the repo root. |
-| `check-docs-api` | Fail unless `docs/api/v0` or `docs/api/v1` exists. |
+| `check-docs` | Fail the job if `README.md` is missing at the repo root. |
 | `setup-npmrc` | Generate `.npmrc` files from secrets, upload them as an artifact. |
 | `pnpm-install` | Corepack-enabled `pnpm install --frozen-lockfile --ignore-scripts`. |
 | `build-js` | Run the pnpm build script if present; upload `dist/` as an artifact. |
 | `build-version` | Extract the SemVer version from tag / branch / commit and pin `package.json`. |
-| `build-function` | Assemble a Lambda function archive (zip) from `src/` and `package.json`. |
-| `build-image-name` | Compute `IMAGE` / `IMAGE_NAME` / `IMAGE_REF_TAG` for the container build. |
-| `publish-image` | Build and push the image with Kaniko to both SHA and ref tags. |
-| `aws-credentials` | AWS auth via OIDC role assumption (default) or static-key fallback. |
-| `deploy-assets` | `aws s3 sync` to the destination bucket. |
-| `deploy-function` | `aws lambda update-function-code` with the function archive. |
-| `deploy-release` | Mark a release as deployed; hook for external deploy mechanisms. |
-| `invoke-function` | `aws lambda invoke`; fail on `errorMessage`. |
-| `cdn-invalidate` | `aws cloudfront create-invalidation` on the given paths. |
 | `notify-slack` | Post a deployment notification to a Slack webhook. |
 | `notify-gchat` | Post a deployment notification to a Google Chat webhook. |
 

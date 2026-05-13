@@ -23,15 +23,6 @@ The pnpm CLI is resolved via `corepack` from the consumer's `package.json packag
 
 Each `workflow_call` `secrets:` block declares ONLY the secrets the workflow consumes. No `secrets: inherit` anywhere — every secret is passed explicitly. Install / lint / test jobs never see registry credentials, AWS keys, or publish tokens; only the jobs that need them do.
 
-## AWS — OIDC default, static-key fallback
-
-`aws-credentials` composite action picks the auth mode based on which inputs are set:
-
-- **OIDC (default)** — pass `aws-role-dev` / `aws-role-prod` IAM role ARNs. The action calls `aws-actions/configure-aws-credentials` and assumes the role for the duration of the job. No long-lived AWS keys land in repo secrets.
-- **Static keys (fallback)** — pass `AWS_ACCESS_KEY_ID_DEV` / `AWS_SECRET_ACCESS_KEY_DEV` and `*_PROD` as secrets. The action exports them to env with branch-routed selection (`dev-branch` → DEV keys, `prod-branch` → PROD keys).
-
-Deploy / invoke jobs declare `permissions: id-token: write` for the OIDC handshake.
-
 ## Secret scanning — `security.yml`
 
 `security.yml` invokes the upstream `gitleaks` CLI directly (pinned `v8.30.1`, SHA-256 verified) — NOT `gitleaks/gitleaks-action@v2`, which requires a paid `gitleaks.io` license for GitHub organizations.

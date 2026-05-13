@@ -1,4 +1,4 @@
-# Pipeline: check-readme -> setup-npmrc -> check-lint -> build-js -> build-version (rules) -> test-unit -> deploy-package (tag) -> notify.
+# Pipeline: check-docs -> setup-npmrc -> check-lint -> build-js -> build-version (rules) -> test-unit -> deploy-package (tag) -> notify.
 # Pull requests are excluded by the top-level on: block of each reusable workflow.
 name: JavaScript NPM Package CI
 
@@ -46,15 +46,15 @@ permissions:
   contents: read
 
 jobs:
-  check-readme:
+  check-docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/check-readme@v0
+      - uses: coroboros/ci/.github/actions/check-docs@v0
 
   setup-npmrc:
     runs-on: ubuntu-latest
-    needs: [check-readme]
+    needs: [check-docs]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: coroboros/ci/.github/actions/setup-npmrc@v0

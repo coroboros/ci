@@ -11,8 +11,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 ## Tech stack
 
 - GitHub Actions reusable workflows (`workflow_call`) and composite actions (`runs.using: composite`).
-- Bash for inline `run:` blocks; `sh` only inside the Kaniko container job (`publish-image`).
-- Kaniko (`gcr.io/kaniko-project/executor:debug`) for image builds.
+- Bash for inline `run:` blocks.
 - pnpm (resolved via `corepack` from the consumer's `package.json packageManager` field). Node 22 default. `pnpm install --frozen-lockfile --ignore-scripts` is the supply-chain baseline.
 
 ## Commands
@@ -23,17 +22,16 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 
 ## Important files
 
-- `.github/workflows/*.yml` — six entry-point reusable workflows (`javascript-npm-package`, `javascript-image`, `javascript-assets`, `javascript-function`, `container-image`, `node-service`), two sub-workflows (`security`, `notify`), two self-CI (`ci`, `ci-security`).
-- `.github/actions/*/action.yml` — seventeen composite actions, one per pipeline step.
+- `.github/workflows/*.yml` — one entry-point reusable workflow (`javascript-npm-package`), two sub-workflows (`security`, `notify`), two self-CI (`ci`, `ci-security`).
+- `.github/actions/*/action.yml` — seven composite actions, one per pipeline step (`check-docs`, `setup-npmrc`, `pnpm-install`, `build-js`, `build-version`, `notify-slack`, `notify-gchat`).
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
 - `docs/examples.md`, `docs/environment-variables.md`, `docs/flow.md`, `docs/stages.md`, `docs/security.md`.
 
 ## Rules
 
-- **Kaniko stays Kaniko**: `publish-image` runs in `gcr.io/kaniko-project/executor:debug`. Do NOT swap for `docker/build-push-action`.
 - **Security baseline — non-negotiable**:
   - `pnpm install --frozen-lockfile --ignore-scripts` on every install. `--frozen-lockfile` fails on stale `pnpm-lock.yaml`; `--ignore-scripts` cuts the postinstall vector.
-  - `--prod` flag added for production-only installs (e.g. function packaging, publish-time install).
+  - `--prod` flag added for production-only installs (e.g. publish-time install).
   - `secrets:` blocks at the workflow_call level declare ONLY the secrets that job consumes. NEVER `secrets: inherit` anywhere in this repo's workflows.
   - `pnpm publish --provenance --no-git-checks` is the default path; `NPM_TOKEN` is opt-in via the secret being passed. OIDC Trusted Publisher is the primary auth flow.
   - **Never re-introduce npm CLI calls** in the JS composite actions or reusable workflows.
@@ -50,11 +48,9 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 
 ## Architecture notes
 
-- `security.yml` is the container for all security scans. Today it runs gitleaks (`check-security`, early fail-fast on real leaks). Future additions (container scanning, SAST, dependency audit) land in the same file at their appropriate stage and produce reports rather than block. Consumers call it as a separate job alongside the main pipeline.
+- `security.yml` is the container for all security scans. Today it runs gitleaks (early fail-fast on real leaks). Future additions (container scanning, SAST, dependency audit) land in the same file at their appropriate stage and produce reports rather than block. Consumers call it as a separate job alongside the main pipeline.
 - Pipeline stage ordering: `setup → check → build → publish → test → pre-deploy → deploy → post-deploy → security → notify`. New jobs land in the matching stage.
 
 ## Out of scope
 
-- Karate / Postman API tests.
 - `check-shell` job (downstream parity — self-CI already runs `shellcheck`).
-- Downstream test fixture repos.
