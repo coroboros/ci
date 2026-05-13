@@ -39,6 +39,24 @@ Two supported branch models:
 
 Nobody pushes directly to `main` (or `develop`). Tags follow [SemVer](https://semver.org/).
 
-## CHANGELOG-driven releases
+## CHANGELOG and release artifacts
 
-Before tagging, write the `## vX.Y.Z - DD/MM/YYYY` entry in `CHANGELOG.md`. The `publish` job reads that section and uses it as the GitHub Release body. No matching section ⇒ the job fails — releases stay coupled to deliberate human curation.
+The `publish` job auto-generates the `## vX.Y.Z - DD/MM/YYYY` section in `CHANGELOG.md` from conventional commits since the previous tag, then commits `CHANGELOG.md` + `package.json` (bumped to the tag) + `pnpm-lock.yaml` (if changed) back to `main` as `chore: release X.Y.Z`. The GitHub Release body uses the same section.
+
+Dev workflow: develop with conventional commits → tag → push. No manual CHANGELOG or version bump.
+
+Conventional commit types map to CHANGELOG subsections:
+
+| Commit type | CHANGELOG subsection |
+| :---------- | :------------------- |
+| `feat` | Features |
+| `fix` | Fixes |
+| `refactor` | Refactor |
+| `perf` | Performance |
+| `docs` | Documentation |
+| `chore` / `ci` / `build` | Configuration |
+| `test` | Tests |
+| `style` | Style |
+| `!:` or `BREAKING CHANGE:` | Breaking Changes (always first) |
+
+Idempotent — if the section for the tag already exists in `CHANGELOG.md` (e.g., hand-curated), `publish` reuses it instead of generating a new one.

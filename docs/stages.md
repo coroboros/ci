@@ -18,12 +18,16 @@ Each job runs all its steps in a **single runner** — no inter-job artifacts, n
 
 ## `publish` (tags)
 
-Steps 1–3 same as `preflight`.
+Different checkout from `preflight`: checks out `main` with full history (`fetch-depth: 0`) to access tag metadata for CHANGELOG generation. Verifies the tag points to `main` HEAD — fails fast if `main` has moved since the tag was pushed.
 
+1. `actions/checkout` (`ref: main`, `fetch-depth: 0`).
+2. Verify `main` HEAD matches tag SHA — fail if not.
+3. `check-docs` + `javascript/base` (install + lint + build + test).
 4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"` — pin `package.json` to the tag.
-5. Extract the matching `## vX.Y.Z` (or `## X.Y.Z`) section from `CHANGELOG.md`. Fails the job when no matching section is found.
-6. `pnpm publish` — auto-detect by `NPM_PACKAGE_REGISTRY_TOKEN` presence: `--provenance --no-git-checks` (OIDC Trusted Publisher) when absent; `--no-git-checks` (token-based via `.npmrc`) when set.
+5. Generate the `## vX.Y.Z - DD/MM/YYYY` section in `CHANGELOG.md` from conventional commits since the previous tag (or all commits if first release). Prepend after the `# Changelog` header. Handles missing/empty `CHANGELOG.md`. Idempotent — reuses the existing section on rerun.
+6. `pnpm publish` — auto-detect by `NPM_PACKAGE_REGISTRY_TOKEN` presence: `--provenance --no-git-checks` (OIDC) when absent; `--no-git-checks` (token-based via `.npmrc`) when set.
 7. `gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file <changelog-section>`.
+8. Commit `CHANGELOG.md` + `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release ${GITHUB_REF_NAME}`. Push via default `GITHUB_TOKEN` (workflow has `permissions: contents: write`).
 
 ## `security` (every trigger)
 

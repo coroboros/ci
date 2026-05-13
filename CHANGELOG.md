@@ -5,7 +5,7 @@
 ### Features
 - One reusable entry-point workflow (`javascript-npm-packages.yml`) with three jobs gated by trigger event:
   - **`preflight`** (on branches) — `check-docs` + `javascript/base` (which bundles install + lint + build + test).
-  - **`publish`** (on tags) — preflight chain + pin `package.json` to tag + `pnpm publish` + GitHub Release with the matching `CHANGELOG.md` section as body.
+  - **`publish`** (on tags) — preflight chain + pin `package.json` to tag + auto-generate the `## vX.Y.Z` `CHANGELOG.md` section from conventional commits + `pnpm publish` + GitHub Release with the section as body + commit `CHANGELOG.md` + `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release X.Y.Z`.
   - **`security`** (always) — calls `security.yml` as a sub-workflow.
 - Two composite actions: `check-docs` (transverse — run context dump + `README.md` presence check) and `javascript/base` (JS-specific — `.node-version` resolution + `actions/setup-node` + corepack + pnpm store cache + `.npmrc` generation + `pnpm install --frozen-lockfile --ignore-scripts` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`). Both called by `preflight` and `publish`.
 - `security.yml` reusable sub-workflow runs gitleaks against the calling repo's tree. Pinned `v8.30.1` with SHA-256 verification. Callable internally (`javascript-npm-packages.yml#security` job) and standalone (consumers wanting only the security scan).

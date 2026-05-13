@@ -36,10 +36,25 @@ jobs:
     if: ${{ github.ref_type == 'tag' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # for GitHub Release creation
+      contents: write   # for GitHub Release creation + commit-back to main
       id-token: write   # for npm OIDC Trusted Publisher
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify tag points to main HEAD
+        shell: bash
+        run: |
+          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
+            echo "::error::main has moved since the tag was pushed. Resolve manually."
+            echo "  Tag SHA:    ${GITHUB_SHA}"
+            echo "  main HEAD:  $(git rev-parse HEAD)"
+            exit 1
+          fi
+          echo "main HEAD matches tag SHA (${GITHUB_SHA})"
+
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/javascript/base@v0
 
@@ -47,25 +62,110 @@ jobs:
         shell: bash
         run: pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"
 
-      - name: Extract CHANGELOG entry for tag
+      - name: Generate CHANGELOG section
         id: changelog
         shell: bash
         run: |
           tag="${GITHUB_REF_NAME}"
-          body="$(awk -v ver="$tag" '
-            $0 ~ "^## v?"ver"( |$)" { flag=1; next }
-            /^## / { if (flag) exit; flag=0 }
-            flag { print }
-          ' CHANGELOG.md)"
+          today="$(date '+%d/%m/%Y')"
 
-          if [ -z "$body" ]; then
-            echo "::error::No CHANGELOG entry found for ${tag} — expected '## v${tag}' or '## ${tag}' section in CHANGELOG.md"
-            exit 1
+          # Idempotency — if a section for this tag already exists, reuse it
+          existing="$(awk -v ver="$tag" '
+            $0 ~ "^## v?"ver"( |$)" { flag=1; next }
+            /^## / { if (flag) exit }
+            flag { print }
+          ' CHANGELOG.md 2>/dev/null || true)"
+
+          if [ -n "${existing}" ]; then
+            echo "Using existing CHANGELOG section for ${tag}"
+            body="${existing}"
+          else
+            echo "Auto-generating CHANGELOG section for ${tag}"
+            prev_tag="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
+            commits_range="${prev_tag:+${prev_tag}..}HEAD"
+
+            features=""
+            fixes=""
+            refactor=""
+            performance=""
+            documentation=""
+            configuration=""
+            tests=""
+            style=""
+            breaking=""
+
+            cc_re='^([a-z]+)(\(([^)]+)\))?(!)?: +(.+)$'
+            while IFS= read -r line; do
+              [ -z "${line}" ] && continue
+              if [[ "${line}" =~ $cc_re ]]; then
+                type="${BASH_REMATCH[1]}"
+                scope="${BASH_REMATCH[3]}"
+                bang="${BASH_REMATCH[4]}"
+                desc="${BASH_REMATCH[5]}"
+
+                if [ -n "${scope}" ]; then
+                  entry="- \`${scope}\` — ${desc}"
+                else
+                  entry="- ${desc}"
+                fi
+
+                if [ -n "${bang}" ]; then
+                  breaking+="${entry}"$'\n'
+                fi
+
+                case "${type}" in
+                  feat)     features+="${entry}"$'\n' ;;
+                  fix)      fixes+="${entry}"$'\n' ;;
+                  refactor) refactor+="${entry}"$'\n' ;;
+                  perf)     performance+="${entry}"$'\n' ;;
+                  docs)     documentation+="${entry}"$'\n' ;;
+                  chore|ci|build) configuration+="${entry}"$'\n' ;;
+                  test)     tests+="${entry}"$'\n' ;;
+                  style)    style+="${entry}"$'\n' ;;
+                esac
+              fi
+            done < <(git log "${commits_range}" --pretty=format:'%s' --no-merges)
+
+            body=""
+            [ -n "${breaking}" ]      && body+="### Breaking Changes"$'\n'"${breaking}"$'\n'
+            [ -n "${features}" ]      && body+="### Features"$'\n'"${features}"$'\n'
+            [ -n "${fixes}" ]         && body+="### Fixes"$'\n'"${fixes}"$'\n'
+            [ -n "${refactor}" ]      && body+="### Refactor"$'\n'"${refactor}"$'\n'
+            [ -n "${performance}" ]   && body+="### Performance"$'\n'"${performance}"$'\n'
+            [ -n "${documentation}" ] && body+="### Documentation"$'\n'"${documentation}"$'\n'
+            [ -n "${configuration}" ] && body+="### Configuration"$'\n'"${configuration}"$'\n'
+            [ -n "${tests}" ]         && body+="### Tests"$'\n'"${tests}"$'\n'
+            [ -n "${style}" ]         && body+="### Style"$'\n'"${style}"$'\n'
+
+            if [ -z "${body}" ]; then
+              body="- Release ${tag}"$'\n'
+            fi
+
+            section="## v${tag} - ${today}"$'\n\n'"${body}"
+
+            if [ ! -f CHANGELOG.md ] || [ ! -s CHANGELOG.md ]; then
+              printf '# Changelog\n\n%s' "${section}" > CHANGELOG.md
+            elif head -n 1 CHANGELOG.md | grep -q '^# Changelog'; then
+              rest="$(tail -n +2 CHANGELOG.md | sed '/./,$!d')"
+              {
+                printf '# Changelog\n\n'
+                printf '%s\n' "${section}"
+                [ -n "${rest}" ] && printf '%s\n' "${rest}"
+              } > CHANGELOG.md.tmp
+              mv CHANGELOG.md.tmp CHANGELOG.md
+            else
+              {
+                printf '# Changelog\n\n'
+                printf '%s\n' "${section}"
+                cat CHANGELOG.md
+              } > CHANGELOG.md.tmp
+              mv CHANGELOG.md.tmp CHANGELOG.md
+            fi
           fi
 
           {
             echo "body<<CHANGELOG_EOF"
-            printf '%s\n' "$body"
+            printf '%s' "${body}"
             echo "CHANGELOG_EOF"
           } >> "${GITHUB_OUTPUT}"
 
@@ -92,6 +192,19 @@ jobs:
             --title "${GITHUB_REF_NAME}" \
             --notes-file "${notes}"
           rm -f "${notes}"
+
+      - name: Commit release artifacts back to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md package.json pnpm-lock.yaml
+          if git diff --staged --quiet; then
+            echo "::notice::No release artifacts to commit (nothing changed)"
+            exit 0
+          fi
+          git commit -m "chore: release ${GITHUB_REF_NAME}"
+          git push origin HEAD:main
 
   security:
     uses: ./.github/workflows/security.yml

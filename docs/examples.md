@@ -76,9 +76,13 @@ jobs:
         shell: bash
 ```
 
-## CHANGELOG-driven releases
+## CHANGELOG auto-generation
 
-The `publish` job reads the section in `CHANGELOG.md` matching the tag — either `## vX.Y.Z` or `## X.Y.Z` — and uses its body as the GitHub Release notes. Curate the entry before tagging. Tag `0.2.1` ⇒ workflow looks for `## v0.2.1` first, then `## 0.2.1`, fails if neither is found.
+The `publish` job auto-generates the `## vX.Y.Z - DD/MM/YYYY` section in `CHANGELOG.md` from conventional commits since the previous tag, then commits it back to `main` as part of `chore: release X.Y.Z`. The GitHub Release body uses the same section.
+
+If the section already exists in `CHANGELOG.md` (e.g., hand-curated), `publish` reuses it instead of generating — fully idempotent.
+
+Dev workflow: develop with conventional commits, tag, push. No manual CHANGELOG or `package.json` bump.
 
 ## Package manager
 

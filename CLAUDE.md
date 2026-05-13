@@ -55,7 +55,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - Two composite actions: `check-docs` (transverse — run context dump + README check, no inputs/env) and `javascript/base` (JS-specific — full preamble + install + lint + build + test). Both called by `preflight` and `publish`.
 - `javascript/base` has zero inputs. Reads `NPM_CONFIG_FILE` (required, fails if missing) + `NPM_EXTRA_CONFIG` (optional) from inherited workflow env. The bundled workflow sets both at workflow level from `secrets.NPM_CONFIG_FILE` + `vars.NPM_EXTRA_CONFIG`; standalone callers mirror the env block.
 - `security.yml` is the reusable container for ALL security scans. Today it runs gitleaks. Future additions (container scanning, SAST, dependency audit) land here as more steps.
-- `publish` job reads the `## vX.Y.Z` (or `## X.Y.Z`) section from `CHANGELOG.md` matching the tag and uses it as the GitHub Release body. The dev curates `CHANGELOG.md` before tagging.
+- `publish` job auto-generates the `## vX.Y.Z` CHANGELOG section from conventional commits since the previous tag (per `~/.claude/rules/changelog.md` convention), uses it as the GitHub Release body, then commits the CHANGELOG + bumped `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release X.Y.Z`. Dev workflow: develop with conventional commits, tag, push — no manual CHANGELOG or bump. If a section for the tag already exists in `CHANGELOG.md` (hand-curated), `publish` reuses it instead of generating.
 
 ## Out of scope
 
