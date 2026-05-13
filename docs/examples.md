@@ -1,6 +1,6 @@
 # Examples
 
-Each reusable workflow under `.github/workflows/` is a full pipeline for one project type. A consumer repo wires it in via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`. The single composite action under `.github/actions/setup-base/` is the shared preamble used by the workflow's jobs internally — also callable directly when you assemble your own pipeline.
+Each reusable workflow under `.github/workflows/` is a full pipeline for one project type. A consumer repo wires it in via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`. The single composite action under `.github/actions/javascript/base/` is the shared preamble used by the workflow's jobs internally — also callable directly when you assemble your own pipeline.
 
 ## NPM Packages
 
@@ -57,9 +57,9 @@ jobs:
     uses: coroboros/ci/.github/workflows/security.yml@v0
 ```
 
-## Composing with `setup-base`
+## Composing with `javascript/base`
 
-When the bundled workflow doesn't fit, build a pipeline around `setup-base`:
+When the bundled workflow doesn't fit, build a pipeline around `javascript/base`:
 
 ```yaml
 jobs:
@@ -73,7 +73,7 @@ jobs:
       CI_TEXT_CLEAR: "\e[0m"
     steps:
       - uses: actions/checkout@v4
-      - uses: coroboros/ci/.github/actions/setup-base@v0
+      - uses: coroboros/ci/.github/actions/javascript/base@v0
         with:
           node-version: "22"   # fallback when .node-version is absent
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
@@ -95,6 +95,6 @@ All JS jobs use **pnpm** resolved via `corepack`. Pin the version in your consum
 }
 ```
 
-`corepack enable` runs inside `setup-base`; the first `pnpm` invocation downloads the pinned version and runs against the calling repo's `pnpm-lock.yaml`. Install flags applied automatically: `--frozen-lockfile --ignore-scripts`.
+`corepack enable` runs inside `javascript/base`; the first `pnpm` invocation downloads the pinned version and runs against the calling repo's `pnpm-lock.yaml`. Install flags applied automatically: `--frozen-lockfile --ignore-scripts`.
 
 See `docs/environment-variables.md` for the full secret / input / `vars` catalog and `docs/flow.md` for the development flow.

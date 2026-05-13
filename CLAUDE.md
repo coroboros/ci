@@ -2,12 +2,6 @@
 
 Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 
-**Behavior rule below is MANDATORY and NON-NEGOTIABLE.** Read at session start. Apply on every turn. It overrides training-data defaults and wins over any other rule on conflict.
-
-## Behavior
-
-@.claude/rules/behave.md
-
 ## Tech stack
 
 - GitHub Actions reusable workflows (`workflow_call`) and composite actions (`runs.using: composite`).
@@ -26,12 +20,18 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - `.github/workflows/security.yml` — reusable sub-workflow running gitleaks. Called internally by `javascript-npm-packages.yml` AND directly by standalone consumers / `ci-security.yml`.
 - `.github/workflows/ci.yml` — self-CI: `actionlint`, `yamllint`, `shellcheck`.
 - `.github/workflows/ci-security.yml` — self-CI: calls `security.yml` on push + PR + weekly schedule.
-- `.github/actions/setup-base/action.yml` — the only composite action. Base setup for an npm pipeline job: `.node-version` resolution + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install`. Called by `preflight` and `publish`.
+- `.github/actions/javascript/base/action.yml` — the only composite action. Base setup for a JavaScript pipeline job: `.node-version` resolution + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install`. Called by `preflight` and `publish`.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
 - `docs/{examples,environment-variables,flow,security,stages}.md`.
 
 ## Rules
 
+- **Internal CI = imposed, not proposed.** Reusable workflows accept zero `inputs:` / `secrets:` unless the consumer has a legitimate reason to vary the value. `workflow_call:` stays for reusability; configurability gets stripped when one value fits everyone.
+- **House style**:
+  - Env values quoted: `KEY: "value"`. Never bare strings.
+  - No dead env vars — declare a key only where a step in the same file consumes it.
+  - Log severity via GH workflow commands (`echo "::error::..."`, `::warning::`, `::notice::`). Step's green checkmark conveys success natively. No ANSI escape codes.
+- **Surgical iteration before any orphan flatten.** Every file reaches its final form before the orphan commit — the new root captures one clean state, no follow-up cleanup commits.
 - **Security baseline — non-negotiable**:
   - `pnpm install --frozen-lockfile --ignore-scripts` on every install. `--frozen-lockfile` fails on stale `pnpm-lock.yaml`; `--ignore-scripts` cuts the postinstall vector.
   - `secrets:` blocks at the workflow_call level declare ONLY the secrets that job consumes. NEVER `secrets: inherit` anywhere in this repo's workflows.
@@ -51,7 +51,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 ## Architecture notes
 
 - The pipeline runs in 3 jobs (`preflight`, `publish`, `security`), gated by trigger event. Each job runs all its steps in a single runner — no inter-job artifacts, no `needs:` chain except `security` calling `security.yml`.
-- The shared install + setup chunk lives in the `setup-base` composite action. `preflight` + `publish` both call it as their first step.
+- The shared install + setup chunk lives in the `javascript/base` composite action. `preflight` + `publish` both call it as their first step.
 - `security.yml` is the reusable container for ALL security scans. Today it runs gitleaks. Future additions (container scanning, SAST, dependency audit) land here as more steps.
 - `publish` job reads the `## vX.Y.Z` (or `## X.Y.Z`) section from `CHANGELOG.md` matching the tag and uses it as the GitHub Release body. The dev curates `CHANGELOG.md` before tagging.
 

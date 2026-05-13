@@ -7,7 +7,7 @@
 
 **Reusable GitHub Actions CI for the Coroboros stack.**
 
-Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose your own pipeline around the `setup-base` composite action under `.github/actions/`.
+Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose your own pipeline around the `javascript/base` composite action under `.github/actions/`.
 
 [![latest](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&label=latest&color=000000)](https://github.com/coroboros/ci/releases)
 [![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/ci.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/ci.yml)
@@ -57,7 +57,7 @@ jobs:
 
 | Action | Purpose |
 | :----- | :------ |
-| `setup-base` | Base setup for an npm pipeline job — `.node-version` resolution (else input else fail) + Node setup + corepack + pnpm store cache + `.npmrc` generation (`NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`. Called by the `preflight` and `publish` jobs of the bundled workflow; reusable directly when composing your own pipeline. |
+| `javascript/base` | Base setup for a JavaScript pipeline job — `.node-version` resolution (else input else fail) + Node setup + corepack + pnpm store cache + `.npmrc` generation (`NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`. Called by the `preflight` and `publish` jobs of the bundled workflow; reusable directly when composing your own pipeline. |
 
 ## Usage
 

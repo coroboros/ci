@@ -15,6 +15,3 @@ permissions:
 jobs:
   security:
     uses: ./.github/workflows/security.yml
-    with:
-      config-path: security/.gitleaks.toml
-      fail-on-leak: true

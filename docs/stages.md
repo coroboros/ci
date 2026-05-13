@@ -8,12 +8,12 @@ publish    (tag pushes)     → setup → lint → build → test → pin versio
 security   (every trigger)  → gitleaks scan (calls security.yml)
 ```
 
-Each job runs all its steps in a **single runner** — no inter-job artifacts, no `needs:` chain except `security` invoking `security.yml`. The shared install + setup chunk lives in the `setup-base` composite action and runs as the first step of both `preflight` and `publish`.
+Each job runs all its steps in a **single runner** — no inter-job artifacts, no `needs:` chain except `security` invoking `security.yml`. The shared install + setup chunk lives in the `javascript/base` composite action and runs as the first step of both `preflight` and `publish`.
 
 ## `preflight` (branches)
 
 1. `actions/checkout`.
-2. `setup-base` — `.node-version` resolution + `actions/setup-node` + corepack + pnpm store cache + `.npmrc` generation (from `NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`.
+2. `javascript/base` — `.node-version` resolution + `actions/setup-node` + corepack + pnpm store cache + `.npmrc` generation (from `NPM_CONFIG_FILE` secret + `vars.NPM_EXTRA_CONFIG`) + README presence check + `pnpm install --frozen-lockfile --ignore-scripts`.
 3. `pnpm run lint`.
 4. `pnpm run build` (only if `scripts.build` exists in `package.json`; otherwise logs `Non required script 'build' skipped` in green).
 5. `pnpm test`.

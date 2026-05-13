@@ -6,7 +6,7 @@ Security baseline for `javascript-npm-packages.yml`.
 
 ## Supply chain — pnpm installs
 
-`pnpm install --frozen-lockfile --ignore-scripts` runs inside `setup-base` (called by `preflight` and `publish`).
+`pnpm install --frozen-lockfile --ignore-scripts` runs inside `javascript/base` (called by `preflight` and `publish`).
 
 - `--frozen-lockfile` fails the install when `pnpm-lock.yaml` is missing, stale, or tampered with. Integrity gate against transitive-dependency injection between lockfile resolution and install.
 - `--ignore-scripts` skips lifecycle scripts (`preinstall`, `install`, `postinstall`) of every dependency. Cuts the postinstall supply-chain vector.

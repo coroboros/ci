@@ -1,11 +1,5 @@
-# Three jobs gated by the trigger event:
-#   preflight  if branch  — install + lint + build + test
-#   publish    if tag     — install + lint + build + test + pin version + publish + GitHub release + notify
-#   security   always     — calls security.yml (reusable sub-workflow)
-#
-# Pull requests are not excluded at this workflow level — consumers wire `on: push: branches: [...]; tags: ['*']`
-# in their own caller workflow; this reusable workflow runs as a job within whatever the caller picks up.
-name: JavaScript NPM Packages CI
+# JavaScript NPM Packages CI
+name: JavaScript NPM Packages
 
 on:
   workflow_call:
@@ -37,11 +31,6 @@ on:
 permissions:
   contents: read
 
-env:
-  CI_TEXT_RED: "\e[31m"
-  CI_TEXT_GREEN: "\e[32m"
-  CI_TEXT_CLEAR: "\e[0m"
-
 jobs:
   preflight:
     if: ${{ github.ref_type == 'branch' }}
@@ -49,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - id: setup
-        uses: coroboros/ci/.github/actions/setup-base@v0
+        uses: coroboros/ci/.github/actions/javascript/base@v0
         with:
           node-version: ${{ inputs.node-version }}
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
@@ -63,7 +52,7 @@ jobs:
           if [ "$(jq .scripts.build package.json)" != "null" ]; then
             pnpm run build
           else
-            printf '%b\n' "${CI_TEXT_GREEN}Non required script 'build' skipped${CI_TEXT_CLEAR}"
+            echo "Non required script 'build' skipped"
           fi
       - name: Test
         shell: bash
@@ -79,7 +68,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - id: setup
-        uses: coroboros/ci/.github/actions/setup-base@v0
+        uses: coroboros/ci/.github/actions/javascript/base@v0
         with:
           node-version: ${{ inputs.node-version }}
           npm-config-file: ${{ secrets.NPM_CONFIG_FILE }}
@@ -95,7 +84,7 @@ jobs:
           if [ "$(jq .scripts.build package.json)" != "null" ]; then
             pnpm run build
           else
-            printf '%b\n' "${CI_TEXT_GREEN}Non required script 'build' skipped${CI_TEXT_CLEAR}"
+            echo "Non required script 'build' skipped"
           fi
 
       - name: Test
@@ -118,7 +107,7 @@ jobs:
           ' CHANGELOG.md)"
 
           if [ -z "$body" ]; then
-            printf '%b\n' "${CI_TEXT_RED}No CHANGELOG entry found for ${tag} — expected '## v${tag}' or '## ${tag}' section in CHANGELOG.md${CI_TEXT_CLEAR}"
+            echo "::error::No CHANGELOG entry found for ${tag} — expected '## v${tag}' or '## ${tag}' section in CHANGELOG.md"
             exit 1
           fi
 

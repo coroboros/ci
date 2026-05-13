@@ -10,14 +10,14 @@ Three sources of configuration:
 
 | name | type | description | required | default |
 | :--- | :--- | :---------- | :------- | :------ |
-| `node-version` | string | Fallback Node.js version. `setup-base` reads `.node-version` from the consumer repo if present, falls back to this input, fails the job if neither is set. | | `""` |
+| `node-version` | string | Fallback Node.js version. `javascript/base` reads `.node-version` from the consumer repo if present, falls back to this input, fails the job if neither is set. | | `""` |
 | `provenance` | boolean | When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` to fall back to publishing with `NPM_PACKAGE_REGISTRY_TOKEN` as `NODE_AUTH_TOKEN`. | | `true` |
 
 ## `javascript-npm-packages.yml` secrets
 
 | name | required | description |
 | :--- | :------- | :---------- |
-| `NPM_CONFIG_FILE` | X | `.npmrc` content, dropped at repo root by `setup-base`. |
+| `NPM_CONFIG_FILE` | X | `.npmrc` content, dropped at repo root by `javascript/base`. |
 | `NPM_PACKAGE_REGISTRY` | X | npm package registry URL (used inside `NPM_CONFIG_FILE` via `${NPM_PACKAGE_REGISTRY}` expansion at runtime). |
 | `NPM_PACKAGE_PROXY_REGISTRY` | X | npm package proxy registry URL. |
 | `NPM_PACKAGE_REGISTRY_TOKEN` | | npm package registry token. Used for install-time auth when the registry is private, and as `NODE_AUTH_TOKEN` at publish time when `provenance: false`. **Set per-repo only when needed** — leaving it unset at the org level keeps OIDC Trusted Publisher repos token-free. |
@@ -28,7 +28,7 @@ Three sources of configuration:
 
 | name | description | default if unset |
 | :--- | :---------- | :--------------- |
-| `vars.NPM_EXTRA_CONFIG` | Extra `.npmrc` lines appended after `NPM_CONFIG_FILE` by `setup-base`. | `""` |
+| `vars.NPM_EXTRA_CONFIG` | Extra `.npmrc` lines appended after `NPM_CONFIG_FILE` by `javascript/base`. | `""` |
 
 ## `security.yml` inputs
 

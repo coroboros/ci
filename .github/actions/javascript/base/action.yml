@@ -1,5 +1,5 @@
-name: setup-base
-description: Base setup for an npm pipeline job — resolves Node.js version, sets up Node + corepack + pnpm cache, generates `.npmrc` from the consumer's secret blob, runs `pnpm install --frozen-lockfile --ignore-scripts`. Logs the GitHub run context.
+name: javascript/base
+description: Base setup for a JavaScript pipeline job — resolves Node.js version, sets up Node + corepack + pnpm cache, generates `.npmrc` from the consumer's secret blob, runs `pnpm install --frozen-lockfile --ignore-scripts`. Logs the GitHub run context.
 
 inputs:
   node-version:
@@ -25,7 +25,7 @@ runs:
         INPUT_NODE_VERSION: ${{ inputs.node-version }}
         VAR_NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
       run: |
-        printf '%b\n' "${CI_TEXT_GREEN}Run context:${CI_TEXT_CLEAR}"
+        echo "Run context:"
         echo "  GITHUB_REF_NAME       | ${GITHUB_REF_NAME}"
         echo "  GITHUB_REF_SLUG       | $(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | head -c 63 | sed 's/-$//')"
         echo "  GITHUB_REF_TYPE       | ${GITHUB_REF_TYPE}"
@@ -40,10 +40,10 @@ runs:
           node_version="${INPUT_NODE_VERSION}"
           node_source="node-version input"
         else
-          printf '%b\n' "${CI_TEXT_RED}Node.js version is required: provide a .node-version file at the repo root or pass the node-version input.${CI_TEXT_CLEAR}"
+          echo "::error::Node.js version is required: provide a .node-version file at the repo root or pass the node-version input."
           exit 1
         fi
-        printf '%b\n' "${CI_TEXT_GREEN}Resolved Node.js version: ${node_version} (from ${node_source})${CI_TEXT_CLEAR}"
+        echo "Resolved Node.js version: ${node_version} (from ${node_source})"
         echo "node-version=${node_version}" >> "${GITHUB_OUTPUT}"
 
     - name: Setup Node.js
@@ -79,8 +79,8 @@ runs:
     - name: README check
       shell: bash
       run: |
-        [ -f README.md ] || (printf '%b\n' "${CI_TEXT_RED}A README.md file must be present at project root${CI_TEXT_CLEAR}" && exit 1)
-        printf '%b\n' "${CI_TEXT_GREEN}README.md present${CI_TEXT_CLEAR}"
+        [ -f README.md ] || (echo "::error::A README.md file must be present at project root" && exit 1)
+        echo "README.md present"
 
     - name: pnpm install (frozen lockfile, ignore scripts)
       shell: bash
