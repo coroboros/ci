@@ -8,11 +8,10 @@ Three sources of configuration:
 
 ## `javascript-npm-packages.yml` inputs
 
-| name | type | description | required | default |
-| :--- | :--- | :---------- | :------- | :------ |
-| `provenance` | boolean | When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` to fall back to publishing with `NPM_PACKAGE_REGISTRY_TOKEN` as `NODE_AUTH_TOKEN`. | | `true` |
+The workflow has **zero inputs** by design — imposed CI, no consumer-tunable knobs. Behavior auto-detects from secrets:
 
-Node.js version is resolved by `javascript/base` from the consumer's `.node-version` file. The file is required at the repo root — the job fails if missing. No workflow input.
+- Node.js version is resolved by `javascript/base` from the consumer's `.node-version` file. Required at the repo root — the job fails if missing.
+- `pnpm publish` mode is selected by `NPM_PACKAGE_REGISTRY_TOKEN` presence: set ⇒ token-based publish (via `.npmrc`); unset ⇒ OIDC Trusted Publisher + `--provenance`.
 
 ## `javascript-npm-packages.yml` secrets
 
@@ -20,8 +19,8 @@ Node.js version is resolved by `javascript/base` from the consumer's `.node-vers
 | :--- | :------- | :---------- |
 | `NPM_CONFIG_FILE` | X | `.npmrc` content. Exposed at workflow-level env so `javascript/base` can drop it at the repo root. |
 | `NPM_PACKAGE_REGISTRY` | X | npm package registry URL (used inside `NPM_CONFIG_FILE` via `${NPM_PACKAGE_REGISTRY}` expansion at runtime). |
-| `NPM_PACKAGE_PROXY_REGISTRY` | X | npm package proxy registry URL. |
-| `NPM_PACKAGE_REGISTRY_TOKEN` | | npm package registry token. Used for install-time auth when the registry is private, and as `NODE_AUTH_TOKEN` at publish time when `provenance: false`. **Set per-repo only when needed** — leaving it unset at the org level keeps OIDC Trusted Publisher repos token-free. |
+| `NPM_PACKAGE_PROXY_REGISTRY` | | npm package proxy registry URL. Optional — leave unset if no proxy registry. |
+| `NPM_PACKAGE_REGISTRY_TOKEN` | | npm package registry token. Used for install-time auth when the registry is private, and selects publish mode (presence ⇒ token-based publish; absence ⇒ OIDC + provenance). **Set per-repo only when needed** — leaving it unset at the org level keeps OIDC Trusted Publisher repos token-free. |
 
 ## `vars` context — caller's repo / org / env
 

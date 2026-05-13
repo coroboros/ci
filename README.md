@@ -10,7 +10,7 @@
 Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose your own pipeline around the composite actions under `.github/actions/`.
 
 [![latest](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&label=latest&color=000000)](https://github.com/coroboros/ci/releases)
-[![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/ci.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/ci.yml)
+[![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/self.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/self.yml)
 [![branch](https://img.shields.io/badge/branch-main-000000?style=flat-square)](https://github.com/coroboros/ci)
 [![license](https://img.shields.io/badge/license-All%20Rights%20Reserved-000000?style=flat-square)](LICENSE.md)
 [![stars](https://img.shields.io/github/stars/coroboros/ci?style=flat-square&label=stars&color=000000)](https://github.com/coroboros/ci)
@@ -23,7 +23,7 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 
 | Workflow | Use case |
 | :------- | :------- |
-| `javascript-npm-packages.yml` | npm libraries published to a registry. Three jobs gated by trigger event: `preflight` (branches), `publish` (tags), `security` (always). OIDC `pnpm publish --provenance` with `NPM_PACKAGE_REGISTRY_TOKEN` fallback. |
+| `javascript-npm-packages.yml` | npm libraries published to a registry. Three jobs gated by trigger event: `preflight` (branches), `publish` (tags), `security` (always). Auto-detected publish mode: OIDC + `--provenance` when `NPM_PACKAGE_REGISTRY_TOKEN` is unset; token-based via `.npmrc` when set. |
 | `security.yml` | Standalone gitleaks scan. Pinned `v8.30.1`, SHA-256 verified. Called internally by `javascript-npm-packages.yml` and reusable directly by non-npm consumers. |
 
 ## Quick start

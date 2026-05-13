@@ -17,9 +17,9 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 ## Important files
 
 - `.github/workflows/javascript-npm-packages.yml` — entry-point reusable workflow. Three jobs gated by trigger event: `preflight` (branches), `publish` (tags), `security` (always, calls `security.yml`).
-- `.github/workflows/security.yml` — reusable sub-workflow running gitleaks. Called internally by `javascript-npm-packages.yml` AND directly by standalone consumers / `ci-security.yml`.
-- `.github/workflows/ci.yml` — self-CI: `actionlint`, `yamllint`, `shellcheck`.
-- `.github/workflows/ci-security.yml` — self-CI: calls `security.yml` on push + PR + weekly schedule.
+- `.github/workflows/security.yml` — reusable sub-workflow running gitleaks. Called internally by `javascript-npm-packages.yml` AND directly by standalone consumers / `self-security.yml`. Requires `security/.gitleaks.toml` at the calling repo root — fails fast if missing.
+- `.github/workflows/self.yml` — self-CI: `actionlint`, `yamllint`, `shellcheck`.
+- `.github/workflows/self-security.yml` — self-CI: calls `security.yml` on push + PR.
 - `.github/actions/check-docs/action.yml` — transverse composite: run context dump + `README.md` presence check. Called first by `preflight` and `publish`.
 - `.github/actions/javascript/base/action.yml` — JS-specific composite: `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`. Called by `preflight` and `publish`.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
@@ -36,7 +36,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - **Security baseline — non-negotiable**:
   - `pnpm install --frozen-lockfile --ignore-scripts` on every install. `--frozen-lockfile` fails on stale `pnpm-lock.yaml`; `--ignore-scripts` cuts the postinstall vector.
   - `secrets:` blocks at the workflow_call level declare ONLY the secrets that job consumes. NEVER `secrets: inherit` anywhere in this repo's workflows.
-  - `pnpm publish --provenance --no-git-checks` is the default path. OIDC Trusted Publisher is the primary auth flow; `NPM_PACKAGE_REGISTRY_TOKEN` doubles as the publish-time `NODE_AUTH_TOKEN` when `provenance: false`.
+  - `pnpm publish` auto-detects: `--provenance --no-git-checks` (OIDC Trusted Publisher) when `NPM_PACKAGE_REGISTRY_TOKEN` is unset; `--no-git-checks` (token-based via `.npmrc`) when set. No input toggle.
   - **Never re-introduce npm CLI calls** in the JS composite actions or reusable workflows.
 - **Composite action refs**: reusable workflows reference composite actions by full path with pinned major version: `uses: coroboros/ci/.github/actions/<name>@v0`. Never use floating `@main` or unpinned third-party actions.
 - **Never use `gitleaks/gitleaks-action@v2`** — it requires a paid `gitleaks.io` license for GitHub organizations. `security.yml` invokes the upstream `gitleaks` CLI directly.

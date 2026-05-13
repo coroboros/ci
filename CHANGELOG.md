@@ -9,14 +9,14 @@
   - **`security`** (always) — calls `security.yml` as a sub-workflow.
 - Two composite actions: `check-docs` (transverse — run context dump + `README.md` presence check) and `javascript/base` (JS-specific — `.node-version` resolution + `actions/setup-node` + corepack + pnpm store cache + `.npmrc` generation + `pnpm install --frozen-lockfile --ignore-scripts` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`). Both called by `preflight` and `publish`.
 - `security.yml` reusable sub-workflow runs gitleaks against the calling repo's tree. Pinned `v8.30.1` with SHA-256 verification. Callable internally (`javascript-npm-packages.yml#security` job) and standalone (consumers wanting only the security scan).
-- Self-CI workflows: `ci.yml` (`actionlint`, `yamllint`, `shellcheck`) and `ci-security.yml` (calls `security.yml` on push + PR + weekly schedule).
+- Self-CI workflows: `self.yml` (`actionlint`, `yamllint`, `shellcheck`) and `self-security.yml` (calls `security.yml` on push + PR).
 
 ### Configuration
 - pnpm via corepack (resolved from the consumer's `package.json` `packageManager` field). Node version resolved from the consumer's `.node-version` file — required convention; the job fails if missing.
-- `NPM_PACKAGE_REGISTRY_TOKEN` is the single npm token: install-time registry auth when the registry is private, publish-time `NODE_AUTH_TOKEN` when `provenance: false`. Set per-repo only when needed.
+- `NPM_PACKAGE_REGISTRY_TOKEN` is the single npm token: install-time registry auth when the registry is private, and selects publish mode — when set, `pnpm publish` uses token-based auth (from `.npmrc`); when absent, `pnpm publish --provenance` uses OIDC. Set per-repo only when needed.
 - Env-var-style settings (`NPM_EXTRA_CONFIG`) cascade via the caller's `vars` context.
-- Workflow input: `provenance` (publish behavior toggle, default `true`).
-- Workflow secrets: `NPM_CONFIG_FILE` (required), `NPM_PACKAGE_REGISTRY` (required), `NPM_PACKAGE_PROXY_REGISTRY` (required), `NPM_PACKAGE_REGISTRY_TOKEN` (optional).
+- Workflow has zero inputs — imposed CI. Behavior auto-detects from secrets.
+- Workflow secrets: `NPM_CONFIG_FILE` (required), `NPM_PACKAGE_REGISTRY` (required), `NPM_PACKAGE_PROXY_REGISTRY` (optional), `NPM_PACKAGE_REGISTRY_TOKEN` (optional).
 - `publish` job declares `permissions: contents: write` (for GitHub Release creation) and `id-token: write` (for npm OIDC). Consumer grants both at the caller-job level.
 - `.gitleaks.toml` lives at `security/.gitleaks.toml`. Canonical raw URL fallback for cross-repo use.
 - Log severity via GitHub workflow commands (`::error::`, `::warning::`, `::notice::`); step status checkmark conveys success natively.

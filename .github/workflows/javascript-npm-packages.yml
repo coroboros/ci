@@ -3,19 +3,13 @@ name: JavaScript NPM Packages
 
 on:
   workflow_call:
-    inputs:
-      provenance:
-        description: When `true`, pass `--provenance` to `pnpm publish` (requires npm Trusted Publisher OIDC). Set to `false` to fall back to publishing with `NPM_PACKAGE_REGISTRY_TOKEN` as `NODE_AUTH_TOKEN`.
-        type: boolean
-        required: false
-        default: true
     secrets:
       NPM_CONFIG_FILE:
         required: true
       NPM_PACKAGE_REGISTRY:
         required: true
       NPM_PACKAGE_PROXY_REGISTRY:
-        required: true
+        required: false
       NPM_PACKAGE_REGISTRY_TOKEN:
         required: false
 
@@ -25,6 +19,9 @@ permissions:
 env:
   NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
   NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+  NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
+  NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
+  NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
 
 jobs:
   preflight:
@@ -72,16 +69,15 @@ jobs:
             echo "CHANGELOG_EOF"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: pnpm publish (OIDC + NPM_PACKAGE_REGISTRY_TOKEN fallback)
+      - name: pnpm publish
         shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
-          WITH_PROVENANCE: ${{ inputs.provenance }}
         run: |
-          if [ "${WITH_PROVENANCE}" = "true" ]; then
-            pnpm publish --provenance --no-git-checks
-          else
+          if [ -n "${NPM_PACKAGE_REGISTRY_TOKEN}" ]; then
+            echo "Publishing with NPM_PACKAGE_REGISTRY_TOKEN auth (from .npmrc)"
             pnpm publish --no-git-checks
+          else
+            echo "Publishing with OIDC Trusted Publisher + provenance"
+            pnpm publish --provenance --no-git-checks
           fi
 
       - name: Create GitHub Release

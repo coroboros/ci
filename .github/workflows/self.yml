@@ -1,14 +1,5 @@
-# Self-CI for coroboros/ci.
-# Validates this repo's own workflows / actions on every push and pull request:
-#   - actionlint: workflow + action.yml schema, GitHub context references, shell quoting (with embedded shellcheck).
-#   - yamllint:   YAML formatting (uses .yamllint).
-#   - shellcheck: inline `run:` block linting (severity=info).
-#
-# Hardening:
-#   - Third-party actions pinned to a commit SHA, never `@master` / `@main`.
-#   - actionlint installed from the pinned release tarball with SHA-256 verification.
-#   - yamllint pinned to an exact version.
-name: CI
+# Self-CI
+name: Self-CI
 
 on:
   push:
@@ -29,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - name: Install actionlint (pinned + checksum-verified)
+      - name: Install actionlint
         shell: bash
         run: |
           tmp="$(mktemp -d)"
@@ -52,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - name: Install yamllint (pinned)
+      - name: Install yamllint
         shell: bash
         run: pip install --user "yamllint==${YAMLLINT_VERSION}"
 
@@ -65,7 +56,6 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - name: Run shellcheck on inline workflow scripts
-        # ludeeus/action-shellcheck v2.0.0 — pinned by commit SHA per CLAUDE.md security baseline.
         uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38
         env:
           SHELLCHECK_OPTS: --severity=info

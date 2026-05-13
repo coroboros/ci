@@ -22,7 +22,7 @@ Steps 1–3 same as `preflight`.
 
 4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"` — pin `package.json` to the tag.
 5. Extract the matching `## vX.Y.Z` (or `## X.Y.Z`) section from `CHANGELOG.md`. Fails the job when no matching section is found.
-6. `pnpm publish --provenance --no-git-checks` (OIDC, default) or `pnpm publish --no-git-checks` (token fallback, when `provenance: false` — `NPM_PACKAGE_REGISTRY_TOKEN` flows in as `NODE_AUTH_TOKEN`).
+6. `pnpm publish` — auto-detect by `NPM_PACKAGE_REGISTRY_TOKEN` presence: `--provenance --no-git-checks` (OIDC Trusted Publisher) when absent; `--no-git-checks` (token-based via `.npmrc`) when set.
 7. `gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file <changelog-section>`.
 
 ## `security` (every trigger)

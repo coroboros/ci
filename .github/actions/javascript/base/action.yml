@@ -41,19 +41,19 @@ runs:
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
 
-    - name: Generate .npmrc at repo root
+    - name: Generate .npmrc at $HOME
       shell: bash
       run: |
         if [ -z "${NPM_CONFIG_FILE}" ]; then
           echo "::error::NPM_CONFIG_FILE env var is required (set at workflow level from secrets.NPM_CONFIG_FILE)"
           exit 1
         fi
-        printf '%s' "${NPM_CONFIG_FILE}" > .npmrc
+        printf '%s' "${NPM_CONFIG_FILE}" > "${HOME}/.npmrc"
         if [ -n "${NPM_EXTRA_CONFIG}" ]; then
-          printf '\n%s\n' "${NPM_EXTRA_CONFIG}" >> .npmrc
+          printf '\n%s\n' "${NPM_EXTRA_CONFIG}" >> "${HOME}/.npmrc"
         fi
 
-    - name: pnpm install (frozen lockfile, ignore scripts)
+    - name: pnpm install
       shell: bash
       run: pnpm install --frozen-lockfile --ignore-scripts
 
