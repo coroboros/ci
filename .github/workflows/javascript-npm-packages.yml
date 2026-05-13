@@ -43,6 +43,11 @@ on:
 permissions:
   contents: read
 
+env:
+  CI_TEXT_RED: "\e[31m"
+  CI_TEXT_GREEN: "\e[32m"
+  CI_TEXT_CLEAR: "\e[0m"
+
 jobs:
   base:
     runs-on: ubuntu-latest

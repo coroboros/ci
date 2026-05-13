@@ -4,7 +4,8 @@
 
 ### Features
 - `setup-base` composite action — the pipeline's single source of defaults. Resolves Node.js version (`.node-version` file → `node-version` input → fail), release-branch pattern, release-source commit pattern, and `npm-extra-config` (caller-repo `vars.*` → hardcoded default). The workflow runs `setup-base` once in a `base` job, exposes everything as job outputs; downstream jobs inherit via `needs.base.outputs.*`; downstream actions inherit via the workflow's `with:` plumbing.
-- `CI_TEXT_GREEN` env in composite actions that emit colored output (`check-docs`, `build-js`, `setup-base`), alongside `CI_TEXT_RED` and `CI_TEXT_CLEAR`. Success / info messages paint green; failures paint red.
+- `CI_TEXT_RED` / `CI_TEXT_GREEN` / `CI_TEXT_CLEAR` palette defined once at the workflow level (`javascript-npm-packages.yml`'s top-level `env:` block) and inherited by every job and composite action step. Success / info messages paint green; failures paint red.
+- `setup-base` logs the run context (`GITHUB_REF_NAME`, `GITHUB_REF_SLUG` (computed), `GITHUB_REPOSITORY`, `GITHUB_SERVER_URL`, `GITHUB_REPOSITORY_URL` (composed)) before resolving the base configuration. One place to inspect what the workflow run sees.
 
 ### Configuration
 - `javascript-npm-packages.yml` (workflow filename) — plural, matching the GitLab origin's `templates/javascript/npm-packages/` folder.

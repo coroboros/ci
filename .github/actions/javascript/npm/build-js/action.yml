@@ -43,9 +43,6 @@ runs:
       shell: bash
       env:
         REQUIRE_BUILD: ${{ inputs.require-build }}
-        CI_TEXT_RED: "\e[31m"
-        CI_TEXT_GREEN: "\e[32m"
-        CI_TEXT_CLEAR: "\e[0m"
       run: |
         mkdir -p dist
         has_build="$(jq -r '.scripts.build // empty' package.json)"

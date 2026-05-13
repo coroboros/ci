@@ -38,10 +38,14 @@ runs:
         VAR_NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
         DEFAULT_RELEASE_BRANCH_PATTERN: '^release[/]((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
         DEFAULT_RELEASE_SOURCE_COMMIT_PATTERN: "^Merge branch 'release[/]((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))' into 'main'"
-        CI_TEXT_RED: "\e[31m"
-        CI_TEXT_GREEN: "\e[32m"
-        CI_TEXT_CLEAR: "\e[0m"
       run: |
+        printf '%b\n' "${CI_TEXT_GREEN}Run context:${CI_TEXT_CLEAR}"
+        echo "  GITHUB_REF_NAME       | ${GITHUB_REF_NAME}"
+        echo "  GITHUB_REF_SLUG       | $(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | head -c 63 | sed 's/-$//')"
+        echo "  GITHUB_REPOSITORY     | ${GITHUB_REPOSITORY}"
+        echo "  GITHUB_SERVER_URL     | ${GITHUB_SERVER_URL}"
+        echo "  GITHUB_REPOSITORY_URL | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+
         rbp="${VAR_RELEASE_BRANCH_PATTERN:-${DEFAULT_RELEASE_BRANCH_PATTERN}}"
         rbp_source="vars.RELEASE_BRANCH_PATTERN"
         [ -z "${VAR_RELEASE_BRANCH_PATTERN}" ] && rbp_source="default"
