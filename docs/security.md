@@ -26,11 +26,15 @@ Set `NPM_PACKAGE_REGISTRY_TOKEN` **per-repo, not at the org level** — leaving 
 
 Each `workflow_call.secrets:` block declares ONLY the secrets the workflow consumes. No `secrets: inherit` anywhere — every secret is passed explicitly.
 
-## Secret scanning — `security.yml`
+## `security.yml` — three parallel scans
 
-`security.yml` invokes the upstream `gitleaks` CLI directly (pinned `v8.30.1`, SHA-256 verified) — NOT `gitleaks/gitleaks-action@v2`, which requires a paid `gitleaks.io` license for GitHub organizations.
+`security.yml` runs three jobs in parallel on every call:
 
-The `security` job in `javascript-npm-packages.yml` calls it automatically on every trigger — consumers get gitleaks for free. Also callable standalone for non-npm repos:
+- **`gitleaks`** — secret scanning. Upstream CLI pinned `v8.30.1`, SHA-256 verified. NOT `gitleaks/gitleaks-action@v2` (which requires a paid `gitleaks.io` license for GitHub organizations). Emits SARIF as the `gitleaks-report` artifact (30-day retention).
+- **`dependency-review`** — PR gate. Runs only on `pull_request` events. Blocks the PR if the dep diff introduces a high-severity vulnerability (via the GitHub Advisory Database). Powered by `actions/dependency-review-action@v4`.
+- **`osv-scanner`** — continuous dependency scan. Recursive scan of lockfiles in the calling repo against [OSV.dev](https://osv.dev/) (aggregates GHSA, RustSec, PyPA, Go vulndb, etc.). Powered by `google/osv-scanner-action@v2`. Fails the job on any known vulnerability.
+
+The `security` job in `javascript-npm-packages.yml` calls this workflow automatically on every trigger — consumers get all three scans for free. Also callable standalone for non-npm repos:
 
 ```yaml
 jobs:
@@ -38,7 +42,22 @@ jobs:
     uses: coroboros/ci/.github/workflows/security.yml@v0
 ```
 
-Inputs are documented in `docs/environment-variables.md`. The scan emits a SARIF report as the `gitleaks-report` artifact (30-day retention).
+For maximum value, consumers should add a `schedule:` trigger to their caller workflow (e.g., weekly cron) so `osv-scanner` catches CVEs published after the last push:
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 0'   # weekly, Sunday 00:00 UTC
+```
+
+Inputs are documented in `docs/environment-variables.md`.
+
+## Dependabot
+
+`.github/dependabot.yml` configures weekly auto-PRs to bump pinned third-party GitHub Actions across `.github/workflows/*` and `.github/actions/**/action.yml`. All bumps are grouped into a single PR per cycle to limit churn. Consumers should add their own ecosystem entries (e.g., `npm` for `package.json`).
 
 ## Action pinning
 

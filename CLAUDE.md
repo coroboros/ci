@@ -17,7 +17,8 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 ## Important files
 
 - `.github/workflows/javascript-npm-packages.yml` — entry-point reusable workflow. Three jobs gated by trigger event: `preflight` (branches), `publish` (tags), `security` (always, calls `security.yml`).
-- `.github/workflows/security.yml` — reusable sub-workflow running gitleaks. Called internally by `javascript-npm-packages.yml` AND directly by standalone consumers / `self-security.yml`. Requires `security/.gitleaks.toml` at the calling repo root — fails fast if missing.
+- `.github/workflows/security.yml` — reusable sub-workflow running three parallel scans: `gitleaks` (secret detection), `dependency-review` (PR gate via `actions/dependency-review-action@v4`, fails on high severity), `osv-scanner` (continuous deps scan against OSV.dev via `google/osv-scanner-action@v2`). Called internally by `javascript-npm-packages.yml` AND directly by standalone consumers / `self-security.yml`. Requires `security/.gitleaks.toml` at the calling repo root — fails fast if missing.
+- `.github/dependabot.yml` — weekly auto-PRs to bump pinned third-party GitHub Actions (grouped into a single PR per cycle).
 - `.github/workflows/self.yml` — self-CI: `actionlint`, `yamllint`, `shellcheck`.
 - `.github/workflows/self-security.yml` — self-CI: calls `security.yml` on push + PR.
 - `.github/actions/check-docs/action.yml` — transverse composite: run context dump + `README.md` presence check. Called first by `preflight` and `publish`.
