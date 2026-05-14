@@ -34,60 +34,50 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 
 ### `javascript-npm-packages.yml`
 
-Bundled NPM CI. Three jobs gated by trigger event:
-
-```
-preflight  (branch push)  → check-docs → javascript/base
-publish    (tag push)     → check-docs → javascript/base → pin → publish → release → commit-back
-security   (every call)   → gitleaks ∥ osv-scanner ∥ dependency-review (PR only)
-```
-
-Each job runs all its steps in a single runner. `security` calls `security.yml`; no other `needs:` chain. Publish mode auto-detects: OIDC + `--provenance` when `NPM_PACKAGE_REGISTRY_TOKEN` is unset, token-based via `.npmrc` when set.
+Bundled NPM CI.
 
 <details>
-<summary><em>preflight</em></summary>
+<summary><em>preflight (branch push)</em></summary>
 
 <br>
 
 1. `actions/checkout`
 2. `check-docs`
-3. `javascript/base` — install + lint + build (when `scripts.build` exists) + test
+3. `javascript/base`
 
 </details>
 
 <details>
-<summary><em>publish</em></summary>
+<summary><em>publish (tag push)</em></summary>
 
 <br>
 
 1. `actions/checkout` (`ref: main`, `fetch-depth: 0`)
-2. Verify `main` HEAD matches the tag SHA. Fails if `main` drifted since the tag was pushed
+2. Verify `main` HEAD matches the tag SHA
 3. `check-docs` + `javascript/base`
-4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"` — pin `package.json` to the tag
-5. `release/generate-changelog` — outputs `body`
-6. `pnpm publish` — `--provenance --no-git-checks` (OIDC) when `NPM_PACKAGE_REGISTRY_TOKEN` is unset, else `--no-git-checks` (token via `.npmrc`)
-7. `release/github-release` — body from step 5
+4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"`
+5. `release/generate-changelog`
+6. `pnpm publish`
+7. `release/github-release`
 8. Commit `CHANGELOG.md` + `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release ${tag}`
 9. Move rolling major tag `vN` to the release commit (skipped on pre-release tags)
 
 </details>
 
 <details>
-<summary><em>security</em></summary>
+<summary><em>security (every call)</em></summary>
 
 <br>
 
-Three parallel jobs:
-
-- **`gitleaks`** — upstream CLI pinned `v8.30.1`, SHA-256 verified. Reads `security/.gitleaks.toml` (fails fast if missing). SARIF emitted as the `gitleaks-report` artifact (30-day retention).
-- **`dependency-review`** — runs on `pull_request` only. Fails on high-severity CVE introduced by the dep diff. `actions/dependency-review-action@v4`.
-- **`osv-scanner`** — recursive lockfile scan against [OSV.dev](https://osv.dev/) (aggregates GHSA, RustSec, PyPA, Go vulndb, etc.). `google/osv-scanner-action@v2`. Fails on any known vulnerability.
+Calls `security.yml` — see [Security](#security).
 
 </details>
 
+- **Notes** — each job runs all its steps in a single runner. `security` calls `security.yml`; no other `needs:` chain.
+
 ### `security.yml`
 
-Reusable sub-workflow exposing the three security jobs above. Used internally by `javascript-npm-packages.yml`, callable standalone for non-npm consumers — see [Examples](#examples).
+Reusable sub-workflow with the three security jobs. Called by `javascript-npm-packages.yml`; standalone use — see [Examples](#examples).
 
 ---
 
@@ -96,9 +86,9 @@ Reusable sub-workflow exposing the three security jobs above. Used internally by
 | Action | Type | Purpose |
 | :--- | :--- | :--- |
 | `check-docs` | transverse | Context dump + `README.md` presence check. |
-| `javascript/base` | JS | `.node-version` resolution + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install --frozen-lockfile --ignore-scripts` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`. |
-| `release/generate-changelog` | transverse | Tag format guard (fails on `v` prefix) + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. Caller needs `fetch-depth: 0`. |
-| `release/github-release` | transverse | Creates the GitHub Release for the current tag with the provided notes body. Caller needs `permissions: contents: write`. |
+| `javascript/base` | JS | Node (from `.node-version`) + corepack pnpm + store cache + `.npmrc` + install + lint + build (conditional) + test. |
+| `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
+| `release/github-release` | transverse | Creates the GitHub Release for the current tag with the provided notes body. |
 
 ---
 
@@ -139,7 +129,7 @@ Consumer must provide at repo root:
 
 Develop with Conventional Commits → tag → push. No manual CHANGELOG, no version bump.
 
-Tags follow **SemVer strict** — `1.2.3`, never `v1.2.3`. The `publish` job auto-generates the CHANGELOG entry with the `v` prefix in the section header.
+Tags follow **SemVer strict** — `1.2.3`, never `v1.2.3`.
 
 <details>
 <summary><em>Branch models</em></summary>
@@ -192,7 +182,7 @@ Zero inputs on `javascript-npm-packages.yml` and on every composite — imposed,
 | `NPM_CONFIG_FILE` | ✔ | `.npmrc` content. Written to repo root by `javascript/base`. `${VAR}` references inside are expanded by npm at install time. |
 | `NPM_PACKAGE_REGISTRY` | ✔ | npm package registry URL. |
 | `NPM_PACKAGE_PROXY_REGISTRY` |  | Optional npm proxy registry URL. |
-| `NPM_PACKAGE_REGISTRY_TOKEN` |  | Set per-repo only for token-based publish (private registry). Absence triggers OIDC + provenance. Leaving it unset at the org level keeps OIDC repos token-free. |
+| `NPM_PACKAGE_REGISTRY_TOKEN` |  | Required for token-based publish to private registries. Absent → OIDC. |
 
 </details>
 
@@ -247,6 +237,19 @@ Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` inte
 ## Security
 
 <details>
+<summary><em>Scans</em></summary>
+
+<br>
+
+Three parallel jobs:
+
+- **`gitleaks`** — pinned `v8.30.1`. SARIF emitted as the `gitleaks-report` artifact (30-day retention).
+- **`dependency-review`** — runs on `pull_request` only. Fails on high-severity CVE introduced by the dep diff. `actions/dependency-review-action@v4`.
+- **`osv-scanner`** — recursive lockfile scan against [OSV.dev](https://osv.dev/). `google/osv-scanner-action@v2`. Fails on any known vulnerability.
+
+</details>
+
+<details>
 <summary><em>Supply chain — pnpm install flags</em></summary>
 
 <br>
@@ -277,7 +280,7 @@ Auto-detected by `NPM_PACKAGE_REGISTRY_TOKEN` presence:
 
 <br>
 
-Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. No `secrets: inherit` anywhere. Every secret is passed explicitly.
+Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. No `secrets: inherit` anywhere.
 
 </details>
 
