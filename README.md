@@ -22,7 +22,6 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 - [Pipelines](#pipelines)
 - [Composable actions](#composable-actions)
 - [Quick start](#quick-start)
-- [Pipeline structure](#pipeline-structure)
 - [Development flow](#development-flow)
 - [Environment](#environment)
 - [Security](#security)
@@ -33,10 +32,62 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 
 ## Pipelines
 
-| Workflow | Use case |
-| :--- | :--- |
-| `javascript-npm-packages.yml` | npm libraries published to a registry. Three jobs gated by event: `preflight` (branches), `publish` (tags), `security` (always). Publish mode auto-detected — OIDC + `--provenance` when `NPM_PACKAGE_REGISTRY_TOKEN` is unset, token-based via `.npmrc` when set. |
-| `security.yml` | Three parallel scans: `gitleaks` (secrets), `dependency-review` (PR gate), `osv-scanner` (continuous deps). Called internally by `javascript-npm-packages.yml`, reusable standalone for non-npm consumers. |
+### `javascript-npm-packages.yml`
+
+Bundled NPM CI. Three jobs gated by trigger event:
+
+```
+preflight  (branch push)  → check-docs → javascript/base
+publish    (tag push)     → check-docs → javascript/base → pin → publish → release → commit-back
+security   (every call)   → gitleaks ∥ osv-scanner ∥ dependency-review (PR only)
+```
+
+Each job runs all its steps in a single runner. `security` calls `security.yml`; no other `needs:` chain. Publish mode auto-detects: OIDC + `--provenance` when `NPM_PACKAGE_REGISTRY_TOKEN` is unset, token-based via `.npmrc` when set.
+
+<details>
+<summary><em>preflight</em></summary>
+
+<br>
+
+1. `actions/checkout`
+2. `check-docs`
+3. `javascript/base` — install + lint + build (when `scripts.build` exists) + test
+
+</details>
+
+<details>
+<summary><em>publish</em></summary>
+
+<br>
+
+1. `actions/checkout` (`ref: main`, `fetch-depth: 0`)
+2. Verify `main` HEAD matches the tag SHA. Fails if `main` drifted since the tag was pushed
+3. `check-docs` + `javascript/base`
+4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"` — pin `package.json` to the tag
+5. `release/generate-changelog` — outputs `body`
+6. `pnpm publish` — `--provenance --no-git-checks` (OIDC) when `NPM_PACKAGE_REGISTRY_TOKEN` is unset, else `--no-git-checks` (token via `.npmrc`)
+7. `release/github-release` — body from step 5
+8. Commit `CHANGELOG.md` + `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release ${tag}`
+9. Move rolling major tag `vN` to the release commit (skipped on pre-release tags)
+
+</details>
+
+<details>
+<summary><em>security</em></summary>
+
+<br>
+
+Three parallel jobs:
+
+- **`gitleaks`** — upstream CLI pinned `v8.30.1`, SHA-256 verified. Reads `security/.gitleaks.toml` (fails fast if missing). SARIF emitted as the `gitleaks-report` artifact (30-day retention).
+- **`dependency-review`** — runs on `pull_request` only. Fails on high-severity CVE introduced by the dep diff. `actions/dependency-review-action@v4`.
+- **`osv-scanner`** — recursive lockfile scan against [OSV.dev](https://osv.dev/) (aggregates GHSA, RustSec, PyPA, Go vulndb, etc.). `google/osv-scanner-action@v2`. Fails on any known vulnerability.
+
+</details>
+
+### `security.yml`
+
+Reusable sub-workflow exposing the three security jobs above. Used internally by `javascript-npm-packages.yml`, callable standalone for non-npm consumers — see [Examples](#examples).
 
 ---
 
@@ -81,58 +132,6 @@ Consumer must provide at repo root:
 - `package.json` with `packageManager: "pnpm@X.Y.Z"`, `scripts.lint`, `scripts.test`. `scripts.build` is optional (auto-detected).
 - `pnpm-lock.yaml` — required for `--frozen-lockfile`.
 - `security/.gitleaks.toml` — gitleaks ruleset (copy from this repo, see [Security](#security)).
-
----
-
-## Pipeline structure
-
-```
-preflight  (branch push)  → check-docs → javascript/base
-publish    (tag push)     → check-docs → javascript/base → pin → publish → release → commit-back
-security   (every call)   → gitleaks ∥ osv-scanner ∥ dependency-review (PR only)
-```
-
-Each job runs all its steps in a single runner. No inter-job artifacts, no `needs:` chain except `security` calling `security.yml`.
-
-<details>
-<summary><em>preflight</em></summary>
-
-<br>
-
-1. `actions/checkout`
-2. `check-docs`
-3. `javascript/base` — install + lint + build (when `scripts.build` exists) + test
-
-</details>
-
-<details>
-<summary><em>publish</em></summary>
-
-<br>
-
-1. `actions/checkout` (`ref: main`, `fetch-depth: 0`)
-2. Verify `main` HEAD matches the tag SHA. Fails if `main` drifted since the tag was pushed
-3. `check-docs` + `javascript/base`
-4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"` — pin `package.json` to the tag
-5. `release/generate-changelog` — outputs `body`
-6. `pnpm publish` — `--provenance --no-git-checks` (OIDC) when `NPM_PACKAGE_REGISTRY_TOKEN` is unset, else `--no-git-checks` (token via `.npmrc`)
-7. `release/github-release` — body from step 5
-8. Commit `CHANGELOG.md` + `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release ${tag}`
-
-</details>
-
-<details>
-<summary><em>security</em></summary>
-
-<br>
-
-Three parallel jobs:
-
-- **`gitleaks`** — upstream CLI pinned `v8.30.1`, SHA-256 verified. Reads `security/.gitleaks.toml` (fails fast if missing). SARIF emitted as the `gitleaks-report` artifact (30-day retention).
-- **`dependency-review`** — runs on `pull_request` only. Fails on high-severity CVE introduced by the dep diff. `actions/dependency-review-action@v4`.
-- **`osv-scanner`** — recursive lockfile scan against [OSV.dev](https://osv.dev/) (aggregates GHSA, RustSec, PyPA, Go vulndb, etc.). `google/osv-scanner-action@v2`. Fails on any known vulnerability.
-
-</details>
 
 ---
 
