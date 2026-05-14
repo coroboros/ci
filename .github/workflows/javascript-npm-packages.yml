@@ -88,10 +88,20 @@ jobs:
           git add CHANGELOG.md package.json pnpm-lock.yaml
           if git diff --staged --quiet; then
             echo "::notice::No release artifacts to commit (nothing changed)"
-            exit 0
+          else
+            git commit -m "chore: release ${GITHUB_REF_NAME}"
+            git push origin HEAD:main
           fi
-          git commit -m "chore: release ${GITHUB_REF_NAME}"
-          git push origin HEAD:main
+
+      - name: Move rolling major tag
+        if: ${{ !contains(github.ref_name, '-') }}
+        shell: bash
+        run: |
+          major="$(echo "${GITHUB_REF_NAME}" | cut -d. -f1)"
+          rolling="v${major}"
+          git tag -f "${rolling}" HEAD
+          git push -f origin "${rolling}"
+          echo "::notice::Moved rolling tag ${rolling} to $(git rev-parse HEAD)"
 
   security:
     uses: ./.github/workflows/security.yml

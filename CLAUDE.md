@@ -20,7 +20,7 @@ Reusable GitHub Actions workflows + composite actions for the Coroboros stack.
 
 - **Imposed, not proposed.** Zero `inputs:` / `secrets:` on reusable workflows unless variation is legitimate.
 - **Pin third-party actions by commit SHA**, inline `# vX` comment. No `@main`, `@master`, `@vX`.
-- **Pin tooling binaries** via release tarballs + SHA-256 verification. No `curl | bash`.
+- **Pin tooling binaries by version.** SHA-256 verification on binary release tarballs. No `curl | bash`.
 - **Composite refs in this repo**: `coroboros/ci/.github/actions/<name>@v0`.
 - **`secrets:`** declares only what the job consumes. Never `secrets: inherit`.
 - **`gitleaks` CLI direct**, not `gitleaks/gitleaks-action@v2` (paid org license).

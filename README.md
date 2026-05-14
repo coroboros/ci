@@ -78,7 +78,8 @@ jobs:
 
 Consumer must provide at repo root:
 - `.node-version` — Node version (fail-fast if missing).
-- `package.json` with `packageManager: "pnpm@X.Y.Z"` — corepack-resolved, no floating pnpm.
+- `package.json` with `packageManager: "pnpm@X.Y.Z"`, `scripts.lint`, `scripts.test`. `scripts.build` is optional (auto-detected).
+- `pnpm-lock.yaml` — required for `--frozen-lockfile`.
 - `security/.gitleaks.toml` — gitleaks ruleset (copy from this repo, see [Security](#security)).
 
 ---
@@ -88,7 +89,7 @@ Consumer must provide at repo root:
 ```
 preflight  (branch push)  → check-docs → javascript/base
 publish    (tag push)     → check-docs → javascript/base → pin → publish → release → commit-back
-security   (every call)   → gitleaks ∥ dependency-review ∥ osv-scanner
+security   (every call)   → gitleaks ∥ osv-scanner ∥ dependency-review (PR only)
 ```
 
 Each job runs all its steps in a single runner. No inter-job artifacts, no `needs:` chain except `security` calling `security.yml`.
@@ -288,7 +289,7 @@ Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. 
 
 Third-party actions across workflows + composites are pinned to a commit SHA with an inline `# vX` comment. Floating refs (`@master`, `@main`, `@vX`) are banned.
 
-Self-CI binaries (`actionlint`, `gitleaks`, `yamllint`) install from pinned release tarballs with SHA-256 verification. No `curl | bash`.
+Self-CI binaries pinned by version. `actionlint` and `gitleaks` install from release tarballs with SHA-256 verification; `yamllint` via `pip install` with version pin. No `curl | bash`.
 
 `.github/dependabot.yml` opens weekly grouped auto-PRs to bump pinned SHAs across `.github/workflows/*` and `.github/actions/**/action.yml`. Consumers should add their own ecosystem entries (e.g., `npm`).
 

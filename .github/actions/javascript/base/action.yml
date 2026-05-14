@@ -64,7 +64,6 @@ runs:
     - name: Build
       shell: bash
       run: |
-        mkdir -p dist
         if [ "$(jq .scripts.build package.json)" != "null" ]; then
           pnpm run build
         else

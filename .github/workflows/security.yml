@@ -38,11 +38,7 @@ jobs:
           curl -fsSL \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}" \
             -o "${tmp}/${tarball}"
-          if [ -n "${GITLEAKS_SHA256}" ]; then
-            echo "${GITLEAKS_SHA256}  ${tmp}/${tarball}" | sha256sum -c -
-          else
-            echo "::warning::gitleaks-sha256 input is empty — skipping checksum verification. Pass the SHA-256 from the gitleaks_${GITLEAKS_VERSION}_checksums.txt release asset for end-to-end integrity."
-          fi
+          echo "${GITLEAKS_SHA256}  ${tmp}/${tarball}" | sha256sum -c -
           tar -xzf "${tmp}/${tarball}" -C "${tmp}" gitleaks
           sudo install -m 0755 "${tmp}/gitleaks" /usr/local/bin/gitleaks
           rm -rf "${tmp}"
@@ -93,6 +89,7 @@ jobs:
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4
         with:
           fail-on-severity: high
+          comment-summary-in-pr: never
 
   osv-scanner:
     runs-on: ubuntu-latest

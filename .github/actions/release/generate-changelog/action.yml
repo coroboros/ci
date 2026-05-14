@@ -13,8 +13,8 @@ runs:
     - name: Validate tag format
       shell: bash
       run: |
-        if [[ "${GITHUB_REF_NAME}" =~ ^v ]]; then
-          echo "::error::Tags must follow SemVer strict (1.2.3), not v1.2.3. Re-tag without the 'v' prefix."
+        if [[ ! "${GITHUB_REF_NAME}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Tag '${GITHUB_REF_NAME}' must follow SemVer strict (X.Y.Z, optional -prerelease, optional +build). No 'v' prefix or other non-SemVer characters."
           exit 1
         fi
 
@@ -24,8 +24,9 @@ runs:
       run: |
         tag="${GITHUB_REF_NAME}"
         today="$(date '+%d/%m/%Y')"
+        ver_re="${tag//./\\.}"
 
-        existing="$(awk -v ver="$tag" '
+        existing="$(awk -v ver="$ver_re" '
           $0 ~ "^## v?"ver"( |$)" { flag=1; next }
           /^## / { if (flag) exit }
           flag { print }
@@ -81,7 +82,7 @@ runs:
                 *)        others+="${entry}"$'\n' ;;
               esac
             fi
-          done < <(git log "${commits_range}" --pretty=format:'%s' --no-merges)
+          done < <(git log "${commits_range}" --pretty=format:'%s' --no-merges --invert-grep --grep='^chore: release ')
 
           body=""
           [ -n "${breaking}" ]      && body+="### Breaking Changes"$'\n'"${breaking}"$'\n'
