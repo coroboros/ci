@@ -1,0 +1,24 @@
+# Release GitHub Release Action Composite
+name: release-github-release
+description: Create a GitHub Release for the current tag with the provided notes body.
+
+inputs:
+  body:
+    description: Release notes body.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Create GitHub Release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        BODY: ${{ inputs.body }}
+      run: |
+        notes="$(mktemp)"
+        printf '%s' "${BODY}" > "${notes}"
+        gh release create "${GITHUB_REF_NAME}" \
+          --title "${GITHUB_REF_NAME}" \
+          --notes-file "${notes}"
+        rm -f "${notes}"

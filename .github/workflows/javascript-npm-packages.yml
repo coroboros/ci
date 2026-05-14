@@ -1,0 +1,107 @@
+# JavaScript NPM Packages CI
+name: JavaScript NPM Packages
+
+on:
+  workflow_call:
+    secrets:
+      NPM_CONFIG_FILE:
+        required: true
+      NPM_PACKAGE_REGISTRY:
+        required: true
+      NPM_PACKAGE_PROXY_REGISTRY:
+        required: false
+      NPM_PACKAGE_REGISTRY_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
+  NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+  NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
+  NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
+  NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
+
+jobs:
+  preflight:
+    if: ${{ github.ref_type == 'branch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/check-docs@v0
+      - uses: coroboros/ci/.github/actions/javascript/base@v0
+
+  publish:
+    if: ${{ github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # for GitHub Release creation + commit-back to main
+      id-token: write   # for npm OIDC Trusted Publisher
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify tag points to main HEAD
+        shell: bash
+        run: |
+          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
+            echo "::error::main has moved since the tag was pushed. Resolve manually."
+            echo "  Tag SHA:    ${GITHUB_SHA}"
+            echo "  main HEAD:  $(git rev-parse HEAD)"
+            exit 1
+          fi
+          echo "main HEAD matches tag SHA (${GITHUB_SHA})"
+
+      - uses: coroboros/ci/.github/actions/check-docs@v0
+      - uses: coroboros/ci/.github/actions/javascript/base@v0
+
+      - name: Pin package.json to tag
+        shell: bash
+        run: pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"
+
+      - id: changelog
+        uses: coroboros/ci/.github/actions/release/generate-changelog@v0
+
+      - name: pnpm publish
+        shell: bash
+        run: |
+          if [ -n "${NPM_PACKAGE_REGISTRY_TOKEN}" ]; then
+            echo "Publishing with NPM_PACKAGE_REGISTRY_TOKEN auth (from .npmrc)"
+            pnpm publish --no-git-checks
+          else
+            echo "Publishing with OIDC Trusted Publisher + provenance"
+            pnpm publish --provenance --no-git-checks
+          fi
+
+      - uses: coroboros/ci/.github/actions/release/github-release@v0
+        with:
+          body: ${{ steps.changelog.outputs.body }}
+
+      - name: Commit release artifacts back to main
+        shell: bash
+        run: |
+          git add CHANGELOG.md package.json pnpm-lock.yaml
+          if git diff --staged --quiet; then
+            echo "::notice::No release artifacts to commit (nothing changed)"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: release ${GITHUB_REF_NAME}"
+            git push origin HEAD:main
+          fi
+
+      - name: Move rolling major tag
+        if: ${{ !contains(github.ref_name, '-') }}
+        shell: bash
+        run: |
+          major="$(echo "${GITHUB_REF_NAME}" | cut -d. -f1)"
+          rolling="v${major}"
+          git tag -f "${rolling}" HEAD
+          git push -f origin "${rolling}"
+          echo "::notice::Moved rolling tag ${rolling} to $(git rev-parse HEAD)"
+
+  security:
+    uses: ./.github/workflows/security.yml

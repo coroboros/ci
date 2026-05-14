@@ -1,0 +1,64 @@
+# Self-CI
+name: Self-CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  ACTIONLINT_VERSION: "1.7.12"
+  ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+  YAMLLINT_VERSION: "1.38.0"
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Install actionlint
+        shell: bash
+        run: |
+          tmp="$(mktemp -d)"
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}" \
+            -o "${tmp}/${tarball}"
+          echo "${ACTIONLINT_SHA256}  ${tmp}/${tarball}" | sha256sum -c -
+          tar -xzf "${tmp}/${tarball}" -C "${tmp}" actionlint
+          sudo install -m 0755 "${tmp}/actionlint" /usr/local/bin/actionlint
+          rm -rf "${tmp}"
+          actionlint -version
+
+      - name: Run actionlint
+        shell: bash
+        run: actionlint -color
+
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Install yamllint
+        shell: bash
+        run: pip install --user "yamllint==${YAMLLINT_VERSION}"
+
+      - name: Run yamllint
+        shell: bash
+        run: yamllint -f colored .
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Run shellcheck on inline workflow scripts
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38  # v2.0.0
+        env:
+          SHELLCHECK_OPTS: --severity=info
+        with:
+          severity: info
+          scandir: ./.github
