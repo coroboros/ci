@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.1 - 14/05/2026
+
+### Fixes
+- `release/generate-changelog` — switch `git log --pretty=format:` to `--pretty=tformat:` so the last commit line is read by the `while read` loop. Previously, a single-commit range produced an empty body and fell back to `- Release X.Y.Z`.
+
 ## v0.1.0 - 14/05/2026
 
 Initial release.

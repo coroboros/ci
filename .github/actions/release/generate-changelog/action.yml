@@ -82,7 +82,7 @@ runs:
                 *)        others+="${entry}"$'\n' ;;
               esac
             fi
-          done < <(git log "${commits_range}" --pretty=format:'%s' --no-merges --invert-grep --grep='^chore: release ')
+          done < <(git log "${commits_range}" --pretty=tformat:'%s' --no-merges --invert-grep --grep='^chore: release ')
 
           body=""
           [ -n "${breaking}" ]      && body+="### Breaking Changes"$'\n'"${breaking}"$'\n'
