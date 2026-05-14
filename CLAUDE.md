@@ -26,7 +26,7 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - `.github/actions/release/generate-changelog/action.yml` — transverse composite: tag format validation (fails on `v` prefix) + Conventional Commits parsed since previous tag into `## vX.Y.Z - DD/MM/YYYY` section in `CHANGELOG.md`, with `Others` bucket for non-standard types. Outputs `body` for release notes. Idempotent. Called by `publish`.
 - `.github/actions/release/github-release/action.yml` — transverse composite: creates the GitHub Release for the current tag with the provided `body`. Called by `publish`.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
-- `docs/{examples,environment-variables,flow,security,stages}.md`.
+- `README.md` — single source of public documentation (pipelines, composables, structure, flow, env, security, examples).
 
 ## Rules
 
@@ -47,17 +47,15 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 - **No `curl | bash` for tooling**: install binaries from release tarballs with SHA-256 verification. Update the SHA whenever bumping the version input.
 - **Action and workflow files contain implementation only**: no editorial comments justifying choices, no provenance metadata. Rationale lives in `CLAUDE.md` or `CHANGELOG.md`.
 - **Adding a new workflow or composite action**:
-  1. Update `docs/examples.md` with a wire-up example.
-  2. Update `docs/environment-variables.md` if new inputs / secrets are introduced.
-  3. Update `README.md` Pipelines / Composable actions tables.
-  4. Run `actionlint -shellcheck=shellcheck` locally — must exit 0.
+  1. Update `README.md` — add a row to the Pipelines / Composable actions table, append the wire-up under Examples, and document new env / I/O under Environment.
+  2. Run `actionlint -shellcheck=shellcheck` locally — must exit 0.
 
 ## Architecture notes
 
 - The pipeline runs in 3 jobs (`preflight`, `publish`, `security`), gated by trigger event. Each job runs all its steps in a single runner — no inter-job artifacts, no `needs:` chain except `security` calling `security.yml`.
 - Four composite actions: `check-docs` (transverse — run context dump + README check), `javascript/base` (JS-specific — full preamble + install + lint + build + test), `release/generate-changelog` (transverse — tag format guard + CHANGELOG section generation/reuse, outputs `body`), `release/github-release` (transverse — GitHub Release creation). `check-docs` + `javascript/base` called by `preflight` and `publish`; `release/*` called by `publish` only.
 - `javascript/base` has zero inputs. Reads `NPM_CONFIG_FILE` (required, fails if missing) + `NPM_EXTRA_CONFIG` (optional) from inherited workflow env. The bundled workflow sets both at workflow level from `secrets.NPM_CONFIG_FILE` + `vars.NPM_EXTRA_CONFIG`; standalone callers mirror the env block.
-- `security.yml` is the reusable container for ALL security scans. Today it runs gitleaks. Future additions (container scanning, SAST, dependency audit) land here as more steps.
+- `security.yml` is the reusable container for ALL security scans — three parallel jobs: `gitleaks`, `dependency-review` (PR-only), `osv-scanner`. Future additions (container scanning, SAST) land here as more jobs.
 - `publish` job auto-generates the `## vX.Y.Z` CHANGELOG section from conventional commits since the previous tag (per `~/.claude/rules/changelog.md` convention), uses it as the GitHub Release body, then commits the CHANGELOG + bumped `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release X.Y.Z`. Dev workflow: develop with conventional commits, tag, push — no manual CHANGELOG or bump. If a section for the tag already exists in `CHANGELOG.md` (hand-curated), `publish` reuses it instead of generating.
 
 ## Out of scope

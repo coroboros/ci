@@ -7,7 +7,7 @@
 
 **Reusable GitHub Actions CI for the Coroboros stack.**
 
-Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose your own pipeline around the composite actions under `.github/actions/`.
+Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose around the composite actions under `.github/actions/`.
 
 [![latest](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&label=latest&color=000000)](https://github.com/coroboros/ci/releases)
 [![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/self.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/self.yml)
@@ -19,12 +19,37 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 
 </div>
 
+- [Pipelines](#pipelines)
+- [Composable actions](#composable-actions)
+- [Quick start](#quick-start)
+- [Pipeline structure](#pipeline-structure)
+- [Development flow](#development-flow)
+- [Environment](#environment)
+- [Security](#security)
+- [Examples](#examples)
+- [License](#license)
+
+---
+
 ## Pipelines
 
 | Workflow | Use case |
-| :------- | :------- |
-| `javascript-npm-packages.yml` | npm libraries published to a registry. Three jobs gated by trigger event: `preflight` (branches), `publish` (tags), `security` (always). Auto-detected publish mode: OIDC + `--provenance` when `NPM_PACKAGE_REGISTRY_TOKEN` is unset; token-based via `.npmrc` when set. |
-| `security.yml` | Standalone gitleaks scan. Pinned `v8.30.1`, SHA-256 verified. Called internally by `javascript-npm-packages.yml` and reusable directly by non-npm consumers. |
+| :--- | :--- |
+| `javascript-npm-packages.yml` | npm libraries published to a registry. Three jobs gated by event: `preflight` (branches), `publish` (tags), `security` (always). Publish mode auto-detected — OIDC + `--provenance` when `NPM_PACKAGE_REGISTRY_TOKEN` is unset, token-based via `.npmrc` when set. |
+| `security.yml` | Three parallel scans: `gitleaks` (secrets), `dependency-review` (PR gate), `osv-scanner` (continuous deps). Called internally by `javascript-npm-packages.yml`, reusable standalone for non-npm consumers. |
+
+---
+
+## Composable actions
+
+| Action | Type | Purpose |
+| :--- | :--- | :--- |
+| `check-docs` | transverse | Context dump + `README.md` presence check. |
+| `javascript/base` | JS | `.node-version` resolution + Node setup + corepack + pnpm store cache + `.npmrc` generation + `pnpm install --frozen-lockfile --ignore-scripts` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`. |
+| `release/generate-changelog` | transverse | Tag format guard (fails on `v` prefix) + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. Caller needs `fetch-depth: 0`. |
+| `release/github-release` | transverse | Creates the GitHub Release for the current tag with the provided notes body. Caller needs `permissions: contents: write`. |
+
+---
 
 ## Quick start
 
@@ -42,7 +67,7 @@ jobs:
   ci:
     uses: coroboros/ci/.github/workflows/javascript-npm-packages.yml@v0
     permissions:
-      contents: write   # GitHub Release creation on tag
+      contents: write   # GitHub Release on tag
       id-token: write   # npm OIDC publish on tag
     secrets:
       NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
@@ -51,36 +76,320 @@ jobs:
       NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
 ```
 
-## Composable actions
+Consumer must provide at repo root:
+- `.node-version` — Node version (fail-fast if missing).
+- `package.json` with `packageManager: "pnpm@X.Y.Z"` — corepack-resolved, no floating pnpm.
+- `security/.gitleaks.toml` — gitleaks ruleset (copy from this repo, see [Security](#security)).
 
-| Action | Purpose |
-| :----- | :------ |
-| `check-docs` | Transverse — run context dump + `README.md` presence check. Called as the first step by `preflight` and `publish`; reusable in any language. |
-| `javascript/base` | Base setup for a JavaScript pipeline job — `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation (`NPM_CONFIG_FILE` env + `NPM_EXTRA_CONFIG` env) + `pnpm install --frozen-lockfile --ignore-scripts` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`. Called by `preflight` and `publish`; reusable directly when composing your own pipeline. |
-| `release/generate-changelog` | Transverse — validates tag format (fails on `v` prefix) + generates or reuses `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits since the previous tag. Outputs `body` for use as release notes. Idempotent: reuses an existing section. Caller must check out with `fetch-depth: 0`. |
-| `release/github-release` | Transverse — create a GitHub Release for the current tag with the provided notes body. Caller job needs `permissions: contents: write`. |
+---
 
-## Usage
+## Pipeline structure
 
-### Stages
+```
+preflight  (branch push)  → check-docs → javascript/base
+publish    (tag push)     → check-docs → javascript/base → pin → publish → release → commit-back
+security   (every call)   → gitleaks ∥ dependency-review ∥ osv-scanner
+```
 
-[`docs/stages.md`](docs/stages.md)
+Each job runs all its steps in a single runner — no inter-job artifacts, no `needs:` chain except `security` calling `security.yml`.
 
-### Flow
+<details>
+<summary><em>preflight</em></summary>
 
-[`docs/flow.md`](docs/flow.md)
+<br>
 
-### Environment Variables
+1. `actions/checkout`
+2. `check-docs`
+3. `javascript/base` — install + lint + build (when `scripts.build` exists) + test
 
-[`docs/environment-variables.md`](docs/environment-variables.md)
+</details>
 
-### Examples
+<details>
+<summary><em>publish</em></summary>
 
-[`docs/examples.md`](docs/examples.md)
+<br>
+
+1. `actions/checkout` (`ref: main`, `fetch-depth: 0`)
+2. Verify `main` HEAD matches the tag SHA — fails if `main` drifted since the tag was pushed
+3. `check-docs` + `javascript/base`
+4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"` — pin `package.json` to the tag
+5. `release/generate-changelog` — outputs `body`
+6. `pnpm publish` — `--provenance --no-git-checks` (OIDC) when `NPM_PACKAGE_REGISTRY_TOKEN` is unset, else `--no-git-checks` (token via `.npmrc`)
+7. `release/github-release` — body from step 5
+8. Commit `CHANGELOG.md` + `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release ${tag}`
+
+</details>
+
+<details>
+<summary><em>security</em></summary>
+
+<br>
+
+Three parallel jobs:
+
+- **`gitleaks`** — upstream CLI pinned `v8.30.1`, SHA-256 verified. Reads `security/.gitleaks.toml` (fails fast if missing). SARIF emitted as the `gitleaks-report` artifact (30-day retention).
+- **`dependency-review`** — runs on `pull_request` only. Fails on high-severity CVE introduced by the dep diff. `actions/dependency-review-action@v4`.
+- **`osv-scanner`** — recursive lockfile scan against [OSV.dev](https://osv.dev/) (aggregates GHSA, RustSec, PyPA, Go vulndb, etc.). `google/osv-scanner-action@v2`. Fails on any known vulnerability.
+
+</details>
+
+---
+
+## Development flow
+
+Develop with Conventional Commits → tag → push. No manual CHANGELOG, no version bump.
+
+Tags follow **SemVer strict** — `1.2.3`, never `v1.2.3`. The `publish` job auto-generates the CHANGELOG entry with the `v` prefix in the section header.
+
+<details>
+<summary><em>Branch models</em></summary>
+
+<br>
+
+**main-only** — feature branch → PR → squash-merge to `main` → tag the merge commit → push.
+
+**develop + main** — PR into `develop` → tag pre-release → `release/x.y.z` branch → merge to `main` → tag final on `main`.
+
+Nobody pushes directly to protected branches (`main`, `develop`, `production`, `staging`).
+
+</details>
+
+<details>
+<summary><em>Conventional Commits → CHANGELOG</em></summary>
+
+<br>
+
+| Commit type | CHANGELOG subsection |
+| :--- | :--- |
+| `feat` | Features |
+| `fix` | Fixes |
+| `refactor` | Refactor |
+| `perf` | Performance |
+| `docs` | Documentation |
+| `chore` / `ci` / `build` | Configuration |
+| `test` | Tests |
+| `style` | Style |
+| Other / non-standard | Others |
+| `!:` or `BREAKING CHANGE:` | Breaking Changes (always first) |
+
+Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent — reuses an existing hand-curated section for the tag if present.
+
+</details>
+
+---
+
+## Environment
+
+Zero inputs on `javascript-npm-packages.yml` and on every composite — imposed, not proposed. Configuration flows through `secrets:` and the caller's `vars` context.
+
+<details>
+<summary><em>Secrets (caller's <code>secrets:</code> block)</em></summary>
+
+<br>
+
+| name | required | description |
+| :--- | :---: | :--- |
+| `NPM_CONFIG_FILE` | ✔ | `.npmrc` content. Written to repo root by `javascript/base`. `${VAR}` references inside are expanded by npm at install time. |
+| `NPM_PACKAGE_REGISTRY` | ✔ | npm package registry URL. |
+| `NPM_PACKAGE_PROXY_REGISTRY` |  | Optional npm proxy registry URL. |
+| `NPM_PACKAGE_REGISTRY_TOKEN` |  | Set per-repo only for token-based publish (private registry). Absence triggers OIDC + provenance. Leaving it unset at the org level keeps OIDC repos token-free. |
+
+</details>
+
+<details>
+<summary><em><code>vars</code> context</em></summary>
+
+<br>
+
+| name | description | default |
+| :--- | :--- | :--- |
+| `NPM_EXTRA_CONFIG` | Extra `.npmrc` lines appended after `NPM_CONFIG_FILE`. | `""` |
+
+</details>
+
+<details>
+<summary><em><code>javascript/base</code> env contract (standalone composition)</em></summary>
+
+<br>
+
+| env | required | description |
+| :-- | :---: | :--- |
+| `NPM_CONFIG_FILE` | ✔ — fail if missing | `.npmrc` content |
+| `NPM_EXTRA_CONFIG` |  | Appended after `NPM_CONFIG_FILE` |
+
+Set both at the caller's workflow- or job-level `env:`.
+
+</details>
+
+<details>
+<summary><em><code>release/*</code> composites I/O</em></summary>
+
+<br>
+
+**`release/generate-changelog`** — no inputs, no secrets. Reads `GITHUB_REF_NAME`. Requires `fetch-depth: 0` for `git describe`. Output:
+
+| output | description |
+| :--- | :--- |
+| `body` | CHANGELOG section body — use as release notes. |
+
+**`release/github-release`** — input:
+
+| input | required | description |
+| :--- | :---: | :--- |
+| `body` | ✔ | Release notes body, typically `steps.<id>.outputs.body` from `release/generate-changelog`. |
+
+Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` internally via `GH_TOKEN`.
+
+</details>
+
+---
 
 ## Security
 
-[`docs/security.md`](docs/security.md)
+<details>
+<summary><em>Supply chain — pnpm install flags</em></summary>
+
+<br>
+
+`pnpm install --frozen-lockfile --ignore-scripts` runs inside `javascript/base`.
+
+- `--frozen-lockfile` — fails on stale or tampered `pnpm-lock.yaml`. Gate against transitive-dependency injection.
+- `--ignore-scripts` — skips lifecycle scripts (`preinstall`, `install`, `postinstall`) of every dependency. Cuts the postinstall supply-chain vector.
+
+pnpm CLI resolved via corepack from `packageManager` — no floating version reaches the runner.
+
+</details>
+
+<details>
+<summary><em>Publish — OIDC vs token auth</em></summary>
+
+<br>
+
+Auto-detected by `NPM_PACKAGE_REGISTRY_TOKEN` presence:
+
+- **Absent** → `pnpm publish --provenance --no-git-checks` (OIDC Trusted Publisher + provenance attestation, no long-lived token).
+- **Present** → `pnpm publish --no-git-checks` (token-based via the `.npmrc` generated by `javascript/base`).
+
+</details>
+
+<details>
+<summary><em>Secret isolation</em></summary>
+
+<br>
+
+Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. No `secrets: inherit` anywhere — every secret is passed explicitly.
+
+</details>
+
+<details>
+<summary><em>Action pinning + Dependabot</em></summary>
+
+<br>
+
+Third-party actions across workflows + composites are pinned to a commit SHA with an inline `# vX` comment. Floating refs (`@master`, `@main`, `@vX`) are banned.
+
+Self-CI binaries (`actionlint`, `gitleaks`, `yamllint`) are installed from pinned release tarballs with SHA-256 verification — no `curl | bash`.
+
+`.github/dependabot.yml` opens weekly grouped auto-PRs to bump pinned SHAs across `.github/workflows/*` and `.github/actions/**/action.yml`. Consumers should add their own ecosystem entries (e.g., `npm`).
+
+</details>
+
+<details>
+<summary><em>Canonical gitleaks config</em></summary>
+
+<br>
+
+Canonical ruleset at `security/.gitleaks.toml` in this repo. Stack-specific rules cover Resend, Neon Postgres, PostHog, and GitHub fine-grained PATs on top of the gitleaks defaults.
+
+Consumers must place the file at `security/.gitleaks.toml` in their own repo — `security.yml` fails fast if missing:
+
+```
+https://raw.githubusercontent.com/coroboros/ci/main/security/.gitleaks.toml
+```
+
+</details>
+
+---
+
+## Examples
+
+<details>
+<summary><em>Standalone security scan (non-npm repo)</em></summary>
+
+<br>
+
+```yaml
+# consumer-repo/.github/workflows/security.yml
+name: Security
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 0'   # weekly — catches CVEs published after last push
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    uses: coroboros/ci/.github/workflows/security.yml@v0
+```
+
+</details>
+
+<details>
+<summary><em>Compose with <code>javascript/base</code></em></summary>
+
+<br>
+
+```yaml
+jobs:
+  custom:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
+      NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: coroboros/ci/.github/actions/check-docs@v0
+      - uses: coroboros/ci/.github/actions/javascript/base@v0
+      - run: pnpm run my-custom-script
+        shell: bash
+```
+
+</details>
+
+<details>
+<summary><em>Compose a custom release pipeline (non-npm artifact)</em></summary>
+
+<br>
+
+```yaml
+jobs:
+  publish:
+    if: ${{ github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - id: changelog
+        uses: coroboros/ci/.github/actions/release/generate-changelog@v0
+      # ...your publish step (docker push, gh release upload, etc.)...
+      - uses: coroboros/ci/.github/actions/release/github-release@v0
+        with:
+          body: ${{ steps.changelog.outputs.body }}
+```
+
+</details>
+
+---
 
 ## License
 
