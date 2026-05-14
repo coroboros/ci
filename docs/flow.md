@@ -57,6 +57,7 @@ Conventional commit types map to CHANGELOG subsections:
 | `chore` / `ci` / `build` | Configuration |
 | `test` | Tests |
 | `style` | Style |
+| Other / non-standard | Others |
 | `!:` or `BREAKING CHANGE:` | Breaking Changes (always first) |
 
 Idempotent — if the section for the tag already exists in `CHANGELOG.md` (e.g., hand-curated), `publish` reuses it instead of generating a new one.

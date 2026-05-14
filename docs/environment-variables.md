@@ -39,6 +39,22 @@ The composite has zero inputs. It reads two env vars from the caller (workflow- 
 
 The bundled `javascript-npm-packages.yml` sets both at workflow level. Standalone composers mirror the env block at the job or workflow level.
 
+## `release/generate-changelog` composite — outputs
+
+| output | description |
+| :----- | :---------- |
+| `body` | CHANGELOG section body for the current tag (used as release notes). |
+
+No inputs, no secrets. Reads `GITHUB_REF_NAME` natively. Requires the caller to check out with `fetch-depth: 0` so `git describe` can resolve the previous tag.
+
+## `release/github-release` composite — inputs
+
+| input | required | description |
+| :---- | :------- | :---------- |
+| `body` | yes | Release notes body — typically `steps.<id>.outputs.body` from `release/generate-changelog`. |
+
+Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` internally via the `GH_TOKEN` env var.
+
 ## `security.yml` inputs
 
 | name | type | description | required | default |

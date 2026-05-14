@@ -57,6 +57,8 @@ jobs:
 | :----- | :------ |
 | `check-docs` | Transverse — run context dump + `README.md` presence check. Called as the first step by `preflight` and `publish`; reusable in any language. |
 | `javascript/base` | Base setup for a JavaScript pipeline job — `.node-version` resolution (required; fail if missing) + Node setup + corepack + pnpm store cache + `.npmrc` generation (`NPM_CONFIG_FILE` env + `NPM_EXTRA_CONFIG` env) + `pnpm install --frozen-lockfile --ignore-scripts` + `pnpm run lint` + `pnpm run build` (conditional) + `pnpm test`. Called by `preflight` and `publish`; reusable directly when composing your own pipeline. |
+| `release/generate-changelog` | Transverse — validates tag format (fails on `v` prefix) + generates or reuses `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits since the previous tag. Outputs `body` for use as release notes. Idempotent: reuses an existing section. Caller must check out with `fetch-depth: 0`. |
+| `release/github-release` | Transverse — create a GitHub Release for the current tag with the provided notes body. Caller job needs `permissions: contents: write`. |
 
 ## Usage
 

@@ -62,112 +62,8 @@ jobs:
         shell: bash
         run: pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"
 
-      - name: Generate CHANGELOG section
-        id: changelog
-        shell: bash
-        run: |
-          tag="${GITHUB_REF_NAME}"
-          today="$(date '+%d/%m/%Y')"
-
-          # Idempotency — if a section for this tag already exists, reuse it
-          existing="$(awk -v ver="$tag" '
-            $0 ~ "^## v?"ver"( |$)" { flag=1; next }
-            /^## / { if (flag) exit }
-            flag { print }
-          ' CHANGELOG.md 2>/dev/null || true)"
-
-          if [ -n "${existing}" ]; then
-            echo "Using existing CHANGELOG section for ${tag}"
-            body="${existing}"
-          else
-            echo "Auto-generating CHANGELOG section for ${tag}"
-            prev_tag="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
-            commits_range="${prev_tag:+${prev_tag}..}HEAD"
-
-            features=""
-            fixes=""
-            refactor=""
-            performance=""
-            documentation=""
-            configuration=""
-            tests=""
-            style=""
-            breaking=""
-
-            cc_re='^([a-z]+)(\(([^)]+)\))?(!)?: +(.+)$'
-            while IFS= read -r line; do
-              [ -z "${line}" ] && continue
-              if [[ "${line}" =~ $cc_re ]]; then
-                type="${BASH_REMATCH[1]}"
-                scope="${BASH_REMATCH[3]}"
-                bang="${BASH_REMATCH[4]}"
-                desc="${BASH_REMATCH[5]}"
-
-                if [ -n "${scope}" ]; then
-                  entry="- \`${scope}\` — ${desc}"
-                else
-                  entry="- ${desc}"
-                fi
-
-                if [ -n "${bang}" ]; then
-                  breaking+="${entry}"$'\n'
-                fi
-
-                case "${type}" in
-                  feat)     features+="${entry}"$'\n' ;;
-                  fix)      fixes+="${entry}"$'\n' ;;
-                  refactor) refactor+="${entry}"$'\n' ;;
-                  perf)     performance+="${entry}"$'\n' ;;
-                  docs)     documentation+="${entry}"$'\n' ;;
-                  chore|ci|build) configuration+="${entry}"$'\n' ;;
-                  test)     tests+="${entry}"$'\n' ;;
-                  style)    style+="${entry}"$'\n' ;;
-                esac
-              fi
-            done < <(git log "${commits_range}" --pretty=format:'%s' --no-merges)
-
-            body=""
-            [ -n "${breaking}" ]      && body+="### Breaking Changes"$'\n'"${breaking}"$'\n'
-            [ -n "${features}" ]      && body+="### Features"$'\n'"${features}"$'\n'
-            [ -n "${fixes}" ]         && body+="### Fixes"$'\n'"${fixes}"$'\n'
-            [ -n "${refactor}" ]      && body+="### Refactor"$'\n'"${refactor}"$'\n'
-            [ -n "${performance}" ]   && body+="### Performance"$'\n'"${performance}"$'\n'
-            [ -n "${documentation}" ] && body+="### Documentation"$'\n'"${documentation}"$'\n'
-            [ -n "${configuration}" ] && body+="### Configuration"$'\n'"${configuration}"$'\n'
-            [ -n "${tests}" ]         && body+="### Tests"$'\n'"${tests}"$'\n'
-            [ -n "${style}" ]         && body+="### Style"$'\n'"${style}"$'\n'
-
-            if [ -z "${body}" ]; then
-              body="- Release ${tag}"$'\n'
-            fi
-
-            section="## v${tag} - ${today}"$'\n\n'"${body}"
-
-            if [ ! -f CHANGELOG.md ] || [ ! -s CHANGELOG.md ]; then
-              printf '# Changelog\n\n%s' "${section}" > CHANGELOG.md
-            elif head -n 1 CHANGELOG.md | grep -q '^# Changelog'; then
-              rest="$(tail -n +2 CHANGELOG.md | sed '/./,$!d')"
-              {
-                printf '# Changelog\n\n'
-                printf '%s\n' "${section}"
-                [ -n "${rest}" ] && printf '%s\n' "${rest}"
-              } > CHANGELOG.md.tmp
-              mv CHANGELOG.md.tmp CHANGELOG.md
-            else
-              {
-                printf '# Changelog\n\n'
-                printf '%s\n' "${section}"
-                cat CHANGELOG.md
-              } > CHANGELOG.md.tmp
-              mv CHANGELOG.md.tmp CHANGELOG.md
-            fi
-          fi
-
-          {
-            echo "body<<CHANGELOG_EOF"
-            printf '%s' "${body}"
-            echo "CHANGELOG_EOF"
-          } >> "${GITHUB_OUTPUT}"
+      - id: changelog
+        uses: coroboros/ci/.github/actions/release/generate-changelog@v0
 
       - name: pnpm publish
         shell: bash
@@ -180,18 +76,9 @@ jobs:
             pnpm publish --provenance --no-git-checks
           fi
 
-      - name: Create GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BODY: ${{ steps.changelog.outputs.body }}
-        run: |
-          notes="$(mktemp)"
-          printf '%s' "${BODY}" > "${notes}"
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
-            --notes-file "${notes}"
-          rm -f "${notes}"
+      - uses: coroboros/ci/.github/actions/release/github-release@v0
+        with:
+          body: ${{ steps.changelog.outputs.body }}
 
       - name: Commit release artifacts back to main
         shell: bash

@@ -76,6 +76,32 @@ jobs:
         shell: bash
 ```
 
+## Composing a custom release pipeline
+
+For a non-npm artifact (container images, GitHub-hosted releases, etc.) that wants the same CHANGELOG + GitHub Release behavior as `javascript-npm-packages.yml`:
+
+```yaml
+jobs:
+  publish:
+    if: ${{ github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - id: changelog
+        uses: coroboros/ci/.github/actions/release/generate-changelog@v0
+      # ...your publish step here (docker push, gh release upload, etc.)...
+      - uses: coroboros/ci/.github/actions/release/github-release@v0
+        with:
+          body: ${{ steps.changelog.outputs.body }}
+```
+
+`generate-changelog` validates the tag format (fails on `v` prefix), parses Conventional Commits since the previous tag, and updates `CHANGELOG.md`. `github-release` creates the GitHub Release for `${{ github.ref_name }}` with the body produced upstream.
+
 ## CHANGELOG auto-generation
 
 The `publish` job auto-generates the `## vX.Y.Z - DD/MM/YYYY` section in `CHANGELOG.md` from conventional commits since the previous tag, then commits it back to `main` as part of `chore: release X.Y.Z`. The GitHub Release body uses the same section.

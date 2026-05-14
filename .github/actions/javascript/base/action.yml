@@ -1,4 +1,4 @@
-# JavaScript Base
+# JavaScript Base Action Composite
 name: javascript-base
 description: Base setup for a JavaScript pipeline job.
 
@@ -27,13 +27,13 @@ runs:
       with:
         node-version: ${{ steps.resolve.outputs.node-version }}
 
-    - name: Enable corepack + activate pnpm
+    - name: Enable corepack and activate pnpm
       shell: bash
       run: |
         corepack enable
         pnpm --version
 
-    - name: Cache pnpm store
+    - name: Setup pnpm cache
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
       with:
         path: ~/.local/share/pnpm/store
@@ -53,7 +53,7 @@ runs:
           printf '\n%s\n' "${NPM_EXTRA_CONFIG}" >> .npmrc
         fi
 
-    - name: pnpm install
+    - name: Install dependencies
       shell: bash
       run: pnpm install --frozen-lockfile --ignore-scripts
 
