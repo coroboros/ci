@@ -41,9 +41,9 @@ Bundled NPM CI.
 
 <br>
 
-1. `actions/checkout`
-2. `check-docs`
-3. `javascript/base`
+1. Checkout
+2. Run [`check-docs`](#composable-actions)
+3. Run [`javascript/base`](#composable-actions)
 
 </details>
 
@@ -52,14 +52,14 @@ Bundled NPM CI.
 
 <br>
 
-1. `actions/checkout` (`ref: main`, `fetch-depth: 0`)
+1. Checkout `main` with full history
 2. Verify `main` HEAD matches the tag SHA
-3. `check-docs` + `javascript/base`
-4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"`
-5. `release/generate-changelog`
-6. `pnpm publish`
-7. `release/github-release`
-8. Commit `CHANGELOG.md` + `package.json` + `pnpm-lock.yaml` back to `main` as `chore: release ${tag}`
+3. Run [`check-docs`](#composable-actions) + [`javascript/base`](#composable-actions)
+4. Pin `package.json` version to the tag
+5. Generate `CHANGELOG.md` section via [`release/generate-changelog`](#composable-actions)
+6. Publish to npm — OIDC + provenance or token-based via `.npmrc` (see [Security](#security))
+7. Create GitHub Release via [`release/github-release`](#composable-actions)
+8. Commit release artifacts back to `main` as `chore: release ${tag}`
 9. Move rolling major tag `vN` to the release commit (skipped on pre-release tags)
 
 </details>
@@ -77,7 +77,13 @@ Calls `security.yml` — see [Security](#security).
 
 ### `security.yml`
 
-Reusable sub-workflow with the three security jobs. Called by `javascript-npm-packages.yml`; standalone use — see [Examples](#examples).
+Reusable sub-workflow with three parallel scans:
+
+- **`gitleaks`** — pinned `v8.30.1`. SARIF emitted as the `gitleaks-report` artifact (30-day retention).
+- **`dependency-review`** — runs on `pull_request` only. Fails on high-severity CVE introduced by the dep diff. `actions/dependency-review-action@v4`.
+- **`osv-scanner`** — recursive lockfile scan against [OSV.dev](https://osv.dev/). `google/osv-scanner-action@v2`. Fails on any known vulnerability.
+
+Called by `javascript-npm-packages.yml`; standalone use — see [Examples](#examples).
 
 ---
 
@@ -235,19 +241,6 @@ Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` inte
 ---
 
 ## Security
-
-<details>
-<summary><em>Scans</em></summary>
-
-<br>
-
-Three parallel jobs:
-
-- **`gitleaks`** — pinned `v8.30.1`. SARIF emitted as the `gitleaks-report` artifact (30-day retention).
-- **`dependency-review`** — runs on `pull_request` only. Fails on high-severity CVE introduced by the dep diff. `actions/dependency-review-action@v4`.
-- **`osv-scanner`** — recursive lockfile scan against [OSV.dev](https://osv.dev/). `google/osv-scanner-action@v2`. Fails on any known vulnerability.
-
-</details>
 
 <details>
 <summary><em>Supply chain — pnpm install flags</em></summary>
