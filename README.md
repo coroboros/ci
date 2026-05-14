@@ -91,7 +91,7 @@ publish    (tag push)     → check-docs → javascript/base → pin → publish
 security   (every call)   → gitleaks ∥ dependency-review ∥ osv-scanner
 ```
 
-Each job runs all its steps in a single runner — no inter-job artifacts, no `needs:` chain except `security` calling `security.yml`.
+Each job runs all its steps in a single runner. No inter-job artifacts, no `needs:` chain except `security` calling `security.yml`.
 
 <details>
 <summary><em>preflight</em></summary>
@@ -110,7 +110,7 @@ Each job runs all its steps in a single runner — no inter-job artifacts, no `n
 <br>
 
 1. `actions/checkout` (`ref: main`, `fetch-depth: 0`)
-2. Verify `main` HEAD matches the tag SHA — fails if `main` drifted since the tag was pushed
+2. Verify `main` HEAD matches the tag SHA. Fails if `main` drifted since the tag was pushed
 3. `check-docs` + `javascript/base`
 4. `pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"` — pin `package.json` to the tag
 5. `release/generate-changelog` — outputs `body`
@@ -172,7 +172,7 @@ Nobody pushes directly to protected branches (`main`, `develop`, `production`, `
 | Other / non-standard | Others |
 | `!:` or `BREAKING CHANGE:` | Breaking Changes (always first) |
 
-Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent — reuses an existing hand-curated section for the tag if present.
+Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-curated section for the tag if present.
 
 </details>
 
@@ -256,7 +256,7 @@ Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` inte
 - `--frozen-lockfile` — fails on stale or tampered `pnpm-lock.yaml`. Gate against transitive-dependency injection.
 - `--ignore-scripts` — skips lifecycle scripts (`preinstall`, `install`, `postinstall`) of every dependency. Cuts the postinstall supply-chain vector.
 
-pnpm CLI resolved via corepack from `packageManager` — no floating version reaches the runner.
+pnpm CLI resolved via corepack from `packageManager`. No floating version reaches the runner.
 
 </details>
 
@@ -277,7 +277,7 @@ Auto-detected by `NPM_PACKAGE_REGISTRY_TOKEN` presence:
 
 <br>
 
-Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. No `secrets: inherit` anywhere — every secret is passed explicitly.
+Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. No `secrets: inherit` anywhere. Every secret is passed explicitly.
 
 </details>
 
@@ -288,7 +288,7 @@ Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. 
 
 Third-party actions across workflows + composites are pinned to a commit SHA with an inline `# vX` comment. Floating refs (`@master`, `@main`, `@vX`) are banned.
 
-Self-CI binaries (`actionlint`, `gitleaks`, `yamllint`) are installed from pinned release tarballs with SHA-256 verification — no `curl | bash`.
+Self-CI binaries (`actionlint`, `gitleaks`, `yamllint`) install from pinned release tarballs with SHA-256 verification. No `curl | bash`.
 
 `.github/dependabot.yml` opens weekly grouped auto-PRs to bump pinned SHAs across `.github/workflows/*` and `.github/actions/**/action.yml`. Consumers should add their own ecosystem entries (e.g., `npm`).
 
@@ -301,7 +301,7 @@ Self-CI binaries (`actionlint`, `gitleaks`, `yamllint`) are installed from pinne
 
 Canonical ruleset at `security/.gitleaks.toml` in this repo. Stack-specific rules cover Resend, Neon Postgres, PostHog, and GitHub fine-grained PATs on top of the gitleaks defaults.
 
-Consumers must place the file at `security/.gitleaks.toml` in their own repo — `security.yml` fails fast if missing:
+Consumers must place the file at `security/.gitleaks.toml` in their own repo. `security.yml` fails fast if missing:
 
 ```
 https://raw.githubusercontent.com/coroboros/ci/main/security/.gitleaks.toml
