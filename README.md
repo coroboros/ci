@@ -36,6 +36,11 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 
 Bundled NPM CI.
 
+Consumer must provide at repo root:
+- `.node-version` — Node version (fail-fast if missing).
+- `package.json` with `packageManager: "pnpm@X.Y.Z"`, `scripts.lint`, `scripts.test`. `scripts.build` is optional (auto-detected).
+- `pnpm-lock.yaml` — required for `--frozen-lockfile`.
+
 <details>
 <summary><em>preflight (branch push)</em></summary>
 
@@ -79,7 +84,7 @@ Calls `security.yml` — see [Security](#security).
 
 Reusable sub-workflow with three parallel scans:
 
-- **`gitleaks`** — pinned `v8.30.1`. SARIF emitted as the `gitleaks-report` artifact (30-day retention).
+- **`gitleaks`** — pinned `v8.30.1`. Uses the consumer's `security/.gitleaks.toml` if present, otherwise fetches the canonical ruleset from `coroboros/ci`. SARIF emitted as the `gitleaks-report` artifact (30-day retention).
 - **`dependency-review`** — runs on `pull_request` only. Fails on high-severity CVE introduced by the dep diff. `actions/dependency-review-action@v4`.
 - **`osv-scanner`** — recursive lockfile scan against [OSV.dev](https://osv.dev/). `google/osv-scanner-action@v2`. Fails on any known vulnerability.
 
@@ -122,12 +127,6 @@ jobs:
       NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
       NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
 ```
-
-Consumer must provide at repo root:
-- `.node-version` — Node version (fail-fast if missing).
-- `package.json` with `packageManager: "pnpm@X.Y.Z"`, `scripts.lint`, `scripts.test`. `scripts.build` is optional (auto-detected).
-- `pnpm-lock.yaml` — required for `--frozen-lockfile`.
-- `security/.gitleaks.toml` — gitleaks ruleset (copy from this repo, see [Security](#security)).
 
 ---
 
@@ -297,11 +296,13 @@ Self-CI binaries pinned by version. `actionlint` and `gitleaks` install from rel
 
 Canonical ruleset at `security/.gitleaks.toml` in this repo. Stack-specific rules cover Resend, Neon Postgres, PostHog, and GitHub fine-grained PATs on top of the gitleaks defaults.
 
-Consumers must place the file at `security/.gitleaks.toml` in their own repo. `security.yml` fails fast if missing:
+`security.yml` fetches it at runtime if the consumer has no local override:
 
 ```
 https://raw.githubusercontent.com/coroboros/ci/main/security/.gitleaks.toml
 ```
+
+Consumers can override by placing their own `security/.gitleaks.toml` at the repo root.
 
 </details>
 

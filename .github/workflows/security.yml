@@ -21,14 +21,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify gitleaks config
+      - name: Resolve gitleaks config
         shell: bash
         run: |
           if [ ! -f "${GITLEAKS_CONFIG_PATH}" ]; then
-            echo "::error::${GITLEAKS_CONFIG_PATH} is required at the repo root"
-            exit 1
+            echo "::notice::No local ${GITLEAKS_CONFIG_PATH} — fetching canonical ruleset from coroboros/ci"
+            mkdir -p "$(dirname "${GITLEAKS_CONFIG_PATH}")"
+            curl -fsSL \
+              "https://raw.githubusercontent.com/coroboros/ci/main/security/.gitleaks.toml" \
+              -o "${GITLEAKS_CONFIG_PATH}"
           fi
-          echo "Using config at ${GITLEAKS_CONFIG_PATH}"
+          echo "Using ${GITLEAKS_CONFIG_PATH}"
 
       - name: Install gitleaks
         shell: bash
