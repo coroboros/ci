@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.3 - 15/05/2026
+
+### Fixes
+- `javascript-npm-packages` — add `--no-git-checks` to the `pnpm version` step. pnpm 11 refuses to bump on an unclean working tree (the install/build steps dirty it beforehand); pnpm 10 did not check. Without the flag the publish job fails with `ERR_PNPM_UNCLEAN_WORKING_TREE` on every pnpm 11 consumer.
+
 ## v0.1.2 - 15/05/2026
 
 ### Fixes
