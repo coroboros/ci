@@ -6,6 +6,8 @@ on:
     secrets:
       NPM_CONFIG_FILE:
         required: true
+      NPM_EXTRA_CONFIG:
+        required: false
       NPM_PACKAGE_REGISTRY:
         required: true
       NPM_PACKAGE_PROXY_REGISTRY:
@@ -18,7 +20,7 @@ permissions:
 
 env:
   NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
-  NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+  NPM_EXTRA_CONFIG: ${{ secrets.NPM_EXTRA_CONFIG }}
   NPM_PACKAGE_REGISTRY: ${{ secrets.NPM_PACKAGE_REGISTRY }}
   NPM_PACKAGE_PROXY_REGISTRY: ${{ secrets.NPM_PACKAGE_PROXY_REGISTRY }}
   NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}

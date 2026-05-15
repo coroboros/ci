@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.4 - 15/05/2026
+
+### Fixes
+- `javascript-npm-packages` — read `NPM_EXTRA_CONFIG` from `secrets`, not `vars`. It is appended verbatim into `.npmrc`, so it can carry auth material; a variable would expose that in plaintext and in logs. Declared as an optional `workflow_call` secret; callers forward it via their `secrets:` block.
+
 ## v0.1.3 - 15/05/2026
 
 ### Fixes

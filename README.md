@@ -172,20 +172,10 @@ Zero inputs on pipelines and on every composite — imposed, not proposed. Confi
 | name | required | description |
 | :--- | :---: | :--- |
 | `NPM_CONFIG_FILE` | ✔ | `.npmrc` content. Written to repo root by `javascript/base`. `${VAR}` references inside are expanded by npm at install time. |
+| `NPM_EXTRA_CONFIG` |  | Extra `.npmrc` lines appended after `NPM_CONFIG_FILE`. A **secret** — it lands in `.npmrc`, so it can carry auth material and must stay masked. |
 | `NPM_PACKAGE_REGISTRY` | ✔ | npm package registry URL. |
 | `NPM_PACKAGE_PROXY_REGISTRY` |  | Optional npm proxy registry URL. |
 | `NPM_PACKAGE_REGISTRY_TOKEN` |  | Required for token-based publish to private registries. Absent → OIDC. |
-
-</details>
-
-<details>
-<summary><em><code>vars</code> context</em></summary>
-
-<br>
-
-| name | description | default |
-| :--- | :--- | :--- |
-| `NPM_EXTRA_CONFIG` | Extra `.npmrc` lines appended after `NPM_CONFIG_FILE`. | `""` |
 
 </details>
 
@@ -359,7 +349,7 @@ jobs:
       contents: read
     env:
       NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
-      NPM_EXTRA_CONFIG: ${{ vars.NPM_EXTRA_CONFIG }}
+      NPM_EXTRA_CONFIG: ${{ secrets.NPM_EXTRA_CONFIG }}
     steps:
       - uses: actions/checkout@v4
       - uses: coroboros/ci/.github/actions/check-docs@v0
