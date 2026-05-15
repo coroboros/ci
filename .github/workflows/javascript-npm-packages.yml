@@ -60,7 +60,7 @@ jobs:
 
       - name: Pin package.json to tag
         shell: bash
-        run: pnpm version --allow-same-version --no-git-tag-version "${GITHUB_REF_NAME}"
+        run: pnpm version --allow-same-version --no-git-tag-version --no-git-checks "${GITHUB_REF_NAME}"
 
       - id: changelog
         uses: coroboros/ci/.github/actions/release/generate-changelog@v0
