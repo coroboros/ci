@@ -124,6 +124,6 @@ runs:
 
         {
           echo "body<<CHANGELOG_EOF"
-          printf '%s' "${body}"
+          printf '%s\n' "${body}"
           echo "CHANGELOG_EOF"
         } >> "${GITHUB_OUTPUT}"
