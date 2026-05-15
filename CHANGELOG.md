@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.2 - 15/05/2026
+
+### Fixes
+- `release/generate-changelog` — append a trailing newline before the heredoc closing delimiter so reused CHANGELOG sections set the GitHub Actions output correctly. Without it, `$(awk)` substitution stripped the trailing newline and `CHANGELOG_EOF` landed on the same line as the last body character, failing the parser with `Matching delimiter not found`.
+
 ## v0.1.1 - 14/05/2026
 
 ### Fixes
