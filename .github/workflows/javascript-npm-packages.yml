@@ -72,7 +72,16 @@ jobs:
         run: |
           if [ -n "${NPM_PACKAGE_REGISTRY_TOKEN}" ]; then
             echo "Publishing with NPM_PACKAGE_REGISTRY_TOKEN auth (from .npmrc)"
-            pnpm publish --no-git-checks
+            # pnpm >= 11.1.3 auto-attempts the OIDC token exchange whenever
+            # ACTIONS_ID_TOKEN_REQUEST_URL / ACTIONS_ID_TOKEN_REQUEST_TOKEN are
+            # present (GitHub sets them when id-token: write is granted at the
+            # job level — required for the OIDC branch below). On the token
+            # bootstrap path, OIDC has no Trusted Publisher to bind to and
+            # fails, then pnpm publishes with no usable auth and npm returns
+            # 404. Unset those env vars on this command so pnpm goes straight
+            # to the .npmrc token. Keeps the workflow pnpm-version-agnostic.
+            env -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+              pnpm publish --no-git-checks
           else
             echo "Publishing with OIDC Trusted Publisher + provenance"
             pnpm publish --provenance --no-git-checks
