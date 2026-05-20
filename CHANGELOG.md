@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.5 - 20/05/2026
+
+### Fixes
+- `javascript-npm-packages` — isolate the token publish path from pnpm 11's auto-OIDC. pnpm `>= 11.1.3` auto-attempts the OIDC token exchange whenever `ACTIONS_ID_TOKEN_REQUEST_URL` / `ACTIONS_ID_TOKEN_REQUEST_TOKEN` are present (GitHub sets them when `id-token: write` is granted at the job level — required for the post-bootstrap OIDC branch). On the token bootstrap path (a new scoped package without a Trusted Publisher binding, or any token-locked exception), the auto-attempt resolves to 404 from npm and pnpm then publishes with no usable auth — the PUT fails with 404. The fix `env -u`'s both vars on the token-path command only — the OIDC branch is unchanged. Keeps the workflow pnpm-version-agnostic: both 10.x and 11.x work on the token path, and 11.x (>= 11.0.7) still drives OIDC when the token is absent.
+
 ## v0.1.4 - 15/05/2026
 
 ### Fixes
