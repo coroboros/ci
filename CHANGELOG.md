@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.10 - 20/05/2026
+
+### Fixes
+- `javascript-npm-packages` — use `npm publish` for the token bootstrap path. v0.1.5 → v0.1.9 chased pnpm-side workarounds (env vars, configs, npx version pin, standalone binary download with SHA verify, `manage-package-manager-versions=false`) and each one hit a different pnpm 10/11 dead-end: pnpm 11 auto-attempts OIDC without `.npmrc` fallback; pnpm 10.33.0 via `npx` is intercepted by corepack; the standalone 10.33.0 binary self-switches on `packageManager: pnpm@11.x` and crashes against its own snapshot. `npm publish` is not managed by corepack, does not auto-attempt OIDC, reads `_authToken` from `.npmrc` directly, and produces an identical tarball (same `files`, same `prepublishOnly`). The OIDC branch (`pnpm publish --provenance --no-git-checks`) is unchanged — pnpm OIDC works once a Trusted Publisher is bound; only the pre-Trusted-Publisher bootstrap takes the npm CLI path. Revert to a single `pnpm publish` once pnpm 11.x's bootstrap-via-token regression is upstream-fixed.
+
 ## v0.1.9 - 20/05/2026
 
 ### Fixes
