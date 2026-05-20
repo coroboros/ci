@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.9 - 20/05/2026
+
+### Fixes
+- `javascript-npm-packages` — pass `--config.manage-package-manager-versions=false` to the pinned pnpm 10.33.0 binary so it does not attempt to self-switch to the consumer's `packageManager` pin. v0.1.8 successfully fetched and SHA-verified `pnpm-linux-x64@10.33.0`, but pnpm 10.33.0 read `packageManager: pnpm@11.x` from the package's `package.json` and tried `pnpm add @pnpm/exe@11.x`, which crashes against the single-file standalone binary (`/snapshot/dist/pnpm.cjs not found`). Disabling the self-switch keeps the pinned 10.33.0 running for the publish call only.
+
 ## v0.1.8 - 20/05/2026
 
 ### Fixes
