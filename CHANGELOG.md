@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.11 - 20/05/2026
+
+### Fixes
+- `javascript-npm-packages` — pass `--ignore-scripts --access public` to `npm publish` on the token bootstrap path. Defense in depth against postinstall-worm supply-chain attacks: install-time scripts are already skipped by `pnpm install --frozen-lockfile --ignore-scripts` in `javascript/base`; the publish flag now also skips `prepack`/`postpack`/`publish`/`postpublish` while the long-lived bootstrap token is in env. `prepublishOnly` still runs (known `npm publish` behavior — the flag does not cover it), but it invokes our own gates from the frozen lockfile that already ran in the base action. The bootstrap token's exposure narrows to one publish — switch to OIDC + provenance via Trusted Publisher for `1.0.1+` to eliminate the long-lived token entirely.
+
 ## v0.1.10 - 20/05/2026
 
 ### Fixes
