@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.13 - 20/05/2026
+
+### Documentation
+- `README` — add `lockfile=true` to the recommended `NPM_CONFIG_FILE` template. Pnpm `< 11.0.0` interprets the preceding `package-lock=false` line as `lockfile=false`, disabling `pnpm-lock.yaml` reads and breaking `pnpm install --frozen-lockfile` in `javascript/base`. The new line re-enables pnpm's lockfile explicitly on pnpm 10.x and is harmless on pnpm `>= 11`, where `lockfile=true` is already the default and `package-lock` is scoped to npm's lockfile only.
+
 ## v0.1.12 - 20/05/2026
 
 ### Documentation
