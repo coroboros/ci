@@ -246,6 +246,7 @@ fund=false
 audit=false
 ignore-scripts=true
 package-lock=false
+lockfile=true
 prefer-online=true
 ```
 
@@ -257,6 +258,7 @@ prefer-online=true
 | `audit=false` | `osv-scanner` (in `security.yml`) covers vulnerability scans natively. |
 | `ignore-scripts=true` | Belt-and-suspenders against postinstall supply-chain attacks — backs up the `--ignore-scripts` flag already passed by `javascript/base` on every `pnpm install`. |
 | `package-lock=false` | Prevent `npm` from emitting a parasitic `package-lock.json` in pnpm repos. |
+| `lockfile=true` | Explicit `pnpm-lock.yaml` enablement. Required on pnpm `< 11.0.0` consumers, where the preceding `package-lock=false` is interpreted as `lockfile=false` and collides with `pnpm install --frozen-lockfile`. Pnpm `>= 11` already defaults to `true` and ignores `package-lock` for `pnpm-lock.yaml`, so the line is harmless there. |
 | `prefer-online=true` | Re-fetch dep metadata each install — local cache cannot mask a yanked or republished version. |
 
 </details>
