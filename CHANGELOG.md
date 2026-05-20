@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.7 - 20/05/2026
+
+### Fixes
+- `javascript-npm-packages` — invoke pnpm 10.33.0 via `npx` for the token publish path only. v0.1.5 (`env -u`) and v0.1.6 (`NPM_CONFIG_PROVENANCE=false`) both failed to stop pnpm `>= 11.1.3` from attempting OIDC in CI; after OIDC fails (no Trusted Publisher on a bootstrap publish), pnpm 11.x does not fall back to the `.npmrc` `_authToken` and the PUT 404s. pnpm 10.33.0 has no OIDC code path, reads `_authToken` from `.npmrc` directly, and publishes. Using `npx pnpm@10.33.0` keeps the consumer package's own `packageManager` pin (typically `pnpm@11.x`) intact — corepack still drives every other step (`install`, `lint`, `build`, `test`, the OIDC branch); only the token-path `pnpm publish` call uses 10.33.0. The OIDC branch (`pnpm publish --provenance --no-git-checks`) is unchanged. Revert to a single pnpm version once the pnpm 11.x bootstrap-via-token regression is upstream-fixed.
+
 ## v0.1.6 - 20/05/2026
 
 ### Fixes
