@@ -72,7 +72,10 @@ jobs:
         run: |
           if [ -n "${NPM_PACKAGE_REGISTRY_TOKEN}" ]; then
             echo "Publishing with NPM_PACKAGE_REGISTRY_TOKEN auth (from .npmrc)"
-            pnpm publish --no-git-checks
+            # Strip ACTIONS_ID_TOKEN_REQUEST_* so pnpm 11 doesn't auto-attempt
+            # OIDC on the token bootstrap path. Full rationale: CHANGELOG v0.1.5.
+            env -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+              pnpm publish --no-git-checks
           else
             echo "Publishing with OIDC Trusted Publisher + provenance"
             pnpm publish --provenance --no-git-checks
