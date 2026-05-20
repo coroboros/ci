@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.6 - 20/05/2026
+
+### Fixes
+- `javascript-npm-packages` — disable provenance auto-detection on the token publish path. v0.1.5's `env -u` of the GitHub OIDC env vars caused pnpm `>= 11.1.3` to emit `ERR_PNPM_ID_TOKEN_GITHUB_WORKFLOW_INCORRECT_PERMISSIONS` and still fail the PUT with 404 — pnpm in CI auto-enables `provenance=true` regardless of the OIDC env vars, and skipping OIDC after the auto-enable leaves the publish without usable auth. Set `NPM_CONFIG_PROVENANCE=false` on the token-path command instead: pnpm sees provenance explicitly disabled, never attempts OIDC, and reads `_authToken` from `.npmrc` directly. The OIDC branch is unchanged. Workflow stays pnpm-version-agnostic.
+
 ## v0.1.5 - 20/05/2026
 
 ### Fixes
