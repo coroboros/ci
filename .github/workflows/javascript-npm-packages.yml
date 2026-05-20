@@ -87,8 +87,12 @@ jobs:
             curl -fsSL "https://github.com/pnpm/pnpm/releases/download/v${PNPM_BOOTSTRAP_VERSION}/pnpm-linux-x64" -o "${pnpm_bin}"
             echo "${PNPM_BOOTSTRAP_SHA256}  ${pnpm_bin}" | sha256sum -c -
             chmod +x "${pnpm_bin}"
-            "${pnpm_bin}" --version
-            "${pnpm_bin}" publish --no-git-checks
+            # Disable pnpm's package-manager self-switch: when the standalone
+            # 10.33.0 binary reads `packageManager: pnpm@11.x` from
+            # package.json it tries `pnpm add @pnpm/exe@11.x` which fails
+            # against the single-file standalone (no `/snapshot/dist/pnpm.cjs`).
+            "${pnpm_bin}" --config.manage-package-manager-versions=false --version
+            "${pnpm_bin}" --config.manage-package-manager-versions=false publish --no-git-checks
           else
             echo "Publishing with OIDC Trusted Publisher + provenance"
             pnpm publish --provenance --no-git-checks
