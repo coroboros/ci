@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.12 - 20/05/2026
+
+### Documentation
+- `README` — document the recommended hardened `NPM_CONFIG_FILE` `.npmrc` (per-line rationale) and the token bootstrap auth setup (`NPM_PACKAGE_REGISTRY_TOKEN` + `NPM_EXTRA_CONFIG` secrets, why `npm publish` is used on that path, migration token → OIDC after first publish). Reaffirms that every npm-publish-related value is a **secret** (encrypted), not a GitHub `var`. Reflects the v0.1.11 token-path hardening.
+
 ## v0.1.11 - 20/05/2026
 
 ### Fixes
