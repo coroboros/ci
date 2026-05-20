@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.8 - 20/05/2026
+
+### Fixes
+- `javascript-npm-packages` — fetch the pnpm 10.33.0 standalone binary directly for the token publish path. v0.1.7's `npx -y pnpm@10.33.0 publish` was intercepted by corepack — every `pnpm` invocation in a project with a `packageManager` field goes through the corepack shim, including the binary that `npx` resolves to, so the consumer's `pnpm@11.x` ran anyway and the same `ERR_PNPM_AUTH_TOKEN_EXCHANGE` 404 surfaced. The fix downloads `pnpm-linux-x64` from the pinned `v10.33.0` GitHub release into `${RUNNER_TEMP}`, verifies its SHA-256 (`8d4e8f7d778e8ac482022e2577011706a872542f6f6f233e795a4d9f978ea8b5`), and executes it by absolute path. Bypasses corepack entirely; the consumer package's own `packageManager` pin is untouched. The OIDC branch (`pnpm publish --provenance --no-git-checks`) is unchanged. Revert to a single pnpm version once pnpm 11.x's bootstrap-via-token regression is upstream-fixed.
+
 ## v0.1.7 - 20/05/2026
 
 ### Fixes
