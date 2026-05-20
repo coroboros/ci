@@ -1,6 +1,6 @@
 {
   "name": "@coroboros/ci",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": true,
   "description": "Reusable GitHub Actions CI for the Coroboros stack.",
   "license": "SEE LICENSE IN LICENSE.md",
