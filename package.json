@@ -4,7 +4,7 @@
   "private": true,
   "description": "Reusable GitHub Actions CI for the Coroboros stack.",
   "license": "SEE LICENSE IN LICENSE.md",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.1.2",
   "engines": {
     "node": ">=22"
   }
