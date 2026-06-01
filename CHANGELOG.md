@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.14 - 01/06/2026
+
+### Fixes
+- `javascript-npm-packages` — add `--ignore-scripts` to the OIDC `pnpm publish` path, skipping publish-time lifecycle scripts. Parity with the token path (already `--ignore-scripts`) and with `coroboros/ci` on GitLab; defense in depth against a publish-time `prepack`/`postpack` payload.
+
+### Configuration
+- `package.json` — bump `packageManager` to `pnpm@11.1.2`, aligning the repo with the Coroboros stack's pnpm 11 baseline (GitLab CI templates and `nodejs-*` images). The token publish path stays on `npm publish`, so the pnpm-11 OIDC regression that pinned `10.33.0` does not resurface.
+
 ## v0.1.13 - 20/05/2026
 
 ### Documentation

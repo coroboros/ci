@@ -85,7 +85,7 @@ jobs:
             npm publish --ignore-scripts --access public
           else
             echo "Publishing with OIDC Trusted Publisher + provenance"
-            pnpm publish --provenance --no-git-checks
+            pnpm publish --provenance --no-git-checks --ignore-scripts
           fi
 
       - uses: coroboros/ci/.github/actions/release/github-release@v0
