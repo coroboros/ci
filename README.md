@@ -212,7 +212,7 @@ Reusable sub-workflow with three parallel scans:
 | `rust/base` | Rust | Resolves the toolchain from `rust-toolchain.toml`, caches the `~/.cargo` deps, runs [`rust/native-deps`](#composable-actions), then `cargo fmt --check`, `clippy -D warnings`, `test`. |
 | `rust/native-deps` | Rust | Runs the optional `ci/setup.sh` native build-dependency hook. Shared by `rust/base` and the publish verify build. No-op when absent. |
 | `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. The shared definition behind `security.yml`, the package `secrets` gate, and self-CI. |
-| `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml` and the npm `supply-chain` gate. |
+| `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml`, the npm `supply-chain` gate, and self-CI. |
 | `security/cargo-deny` | Rust | Runs cargo-deny (sources, licenses, bans, advisories) against `deny.toml`. The Rust `supply-chain` gate. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
