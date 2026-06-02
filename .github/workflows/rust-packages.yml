@@ -25,22 +25,27 @@ jobs:
 
   # cargo-deny owns the Rust supply-chain controls osv-scanner doesn't: crate
   # sources (crates.io only), licenses, banned/wildcard deps, and unmaintained or
-  # yanked advisories. Reads the repo's deny.toml.
+  # yanked advisories. Reads the repo's deny.toml. Runs on every push and gates
+  # `publish` (see its `needs:`), so a release is re-checked against the latest
+  # advisory DB before it ships — not only at PR time. The `security` job scans
+  # in parallel for reporting and does not gate publish; this is the release gate.
   supply-chain:
-    if: ${{ github.ref_type == 'branch' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe  # v2.0.20
-        with:
-          command: check
+      - uses: coroboros/ci/.github/actions/security/cargo-deny@v0
 
   publish:
     if: ${{ github.ref_type == 'tag' }}
+    needs: supply-chain   # no release ships until cargo-deny passes
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main
       id-token: write   # for crates.io OIDC Trusted Publishing
+    # Empty on the OIDC path; set only for the first-publish bootstrap of a new
+    # crate. Surfaced as env so the OIDC auth step can branch on its presence.
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
@@ -59,6 +64,7 @@ jobs:
           echo "main HEAD matches tag SHA (${GITHUB_SHA})"
 
       - uses: coroboros/ci/.github/actions/check-docs@v0
+      - uses: coroboros/ci/.github/actions/rust/native-deps@v0
 
       - name: Pin Cargo.toml to tag
         shell: bash
@@ -69,18 +75,23 @@ jobs:
       - id: changelog
         uses: coroboros/ci/.github/actions/release/generate-changelog@v0
 
+      - name: Mint a short-lived crates.io token via OIDC
+        id: auth
+        if: ${{ env.CARGO_REGISTRY_TOKEN == '' }}
+        uses: rust-lang/crates-io-auth-action@bbd81622f20ce9e2dd9622e3218b975523e45bbe  # v1.0.4
+
       - name: Publish to crates.io
         shell: bash
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          # OIDC path: the short-lived token from the auth step. Bootstrap path:
+          # the long-lived CARGO_REGISTRY_TOKEN secret (already in job env).
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || env.CARGO_REGISTRY_TOKEN }}
         run: |
-          if [ -z "${CARGO_REGISTRY_TOKEN}" ]; then
-            echo "::notice::No CARGO_REGISTRY_TOKEN — skipping crates.io publish"
-            exit 0
-          fi
-          # This tag is main HEAD, already built and tested by preflight, so skip the
-          # redundant verify build; --allow-dirty covers the in-place version pin.
-          cargo publish --no-verify --allow-dirty
+          # The verify build runs (no --no-verify): it compiles the packaged
+          # tarball standalone, catching files missing from `include` or path-dep
+          # leakage that an in-workspace build misses. --allow-dirty covers the
+          # in-place version pin.
+          cargo publish --allow-dirty
 
       - uses: coroboros/ci/.github/actions/release/github-release@v0
         with:

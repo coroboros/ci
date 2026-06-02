@@ -27,13 +27,7 @@ runs:
           ${{ runner.os }}-cargo-
 
     - name: Native build dependencies
-      shell: bash
-      run: |
-        if [ -f ci/setup.sh ]; then
-          bash ci/setup.sh
-        else
-          echo "No ci/setup.sh — pure-Rust package"
-        fi
+      uses: coroboros/ci/.github/actions/rust/native-deps@v0
 
     - name: Format
       shell: bash

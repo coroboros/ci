@@ -1,0 +1,15 @@
+# Rust Native Dependencies Action Composite
+name: rust-native-deps
+description: Run the optional ci/setup.sh native build-dependency hook.
+
+runs:
+  using: composite
+  steps:
+    - name: Native build dependencies
+      shell: bash
+      run: |
+        if [ -f ci/setup.sh ]; then
+          bash ci/setup.sh
+        else
+          echo "No ci/setup.sh — pure-Rust package"
+        fi
