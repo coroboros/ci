@@ -34,8 +34,20 @@ jobs:
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/javascript/base@v0
 
+  # osv-scanner gates the release on known vulnerabilities (pnpm-lock.yaml).
+  # javascript/base already gates the install (Socket Firewall + --frozen-lockfile);
+  # this adds the CVE gate. Runs on every push and gates `publish` (see its
+  # `needs:`), so a release is re-checked against the latest OSV data before it
+  # ships. The `security` job scans in parallel for reporting and does not gate.
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/security/osv-scanner@v0
+
   publish:
     if: ${{ github.ref_type == 'tag' }}
+    needs: supply-chain   # no release ships until osv-scanner passes
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main
