@@ -35,9 +35,21 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: coroboros/ci/.github/actions/security/cargo-deny@v0
 
+  # gitleaks gates the release on a leaked secret, enforced by the template's
+  # `needs:` rather than the consumer's branch protection — the GitLab
+  # `security-gate` equivalent. Runs on every push and gates `publish`. The
+  # `security` job runs gitleaks again in parallel for the SARIF report.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - uses: coroboros/ci/.github/actions/security/gitleaks@v0
+
   publish:
     if: ${{ github.ref_type == 'tag' }}
-    needs: supply-chain   # no release ships until cargo-deny passes
+    needs: [supply-chain, secrets]   # no release ships until cargo-deny and gitleaks pass
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main

@@ -70,11 +70,22 @@ Consumer requirements:
 </details>
 
 <details>
+<summary><em>secrets</em></summary>
+
+<br>
+
+**Trigger**: `every push`. Gates `publish` via `needs:` — a release waits on it.
+
+`gitleaks` scans the full git history with the canonical ruleset. The release-gating twin of the parallel `security` scan, so a leaked secret blocks the publish through the template's `needs:` rather than per-repo branch protection. See [Security](#security).
+
+</details>
+
+<details>
 <summary><em>publish</em></summary>
 
 <br>
 
-**Trigger**: `tag push`. Gated by `supply-chain` (`needs:`) — osv-scanner must pass first.
+**Trigger**: `tag push`. Gated by `supply-chain` and `secrets` (`needs:`) — osv-scanner and gitleaks must pass first.
 
 **Sequence**:
 1. Checkout `main` with full history
@@ -137,11 +148,22 @@ Consumer requirements:
 </details>
 
 <details>
+<summary><em>secrets</em></summary>
+
+<br>
+
+**Trigger**: `every push`. Gates `publish` via `needs:` — a release waits on it.
+
+`gitleaks` scans the full git history with the canonical ruleset. The release-gating twin of the parallel `security` scan, so a leaked secret blocks the publish through the template's `needs:` rather than per-repo branch protection. See [Security](#security).
+
+</details>
+
+<details>
 <summary><em>publish</em></summary>
 
 <br>
 
-**Trigger**: `tag push`. Gated by `supply-chain` (`needs:`) — cargo-deny must pass first.
+**Trigger**: `tag push`. Gated by `supply-chain` and `secrets` (`needs:`) — cargo-deny and gitleaks must pass first.
 
 **Sequence**:
 1. Checkout `main` with full history
@@ -177,7 +199,7 @@ Reusable sub-workflow with three parallel scans:
 
 ---
 
-**Notes** — pin via `@v0` (rolling major) or `@x.y.z`. `self-release.yml` moves `v0` to each stable release, so `@v0` always tracks the latest. `@x.y.z` pins the workflow file. The composite actions it calls are hardcoded `@v0`, so `@x.y.z` is not a full freeze — the nested actions still follow `v0`. Jobs run in parallel except each `publish`, which `needs: supply-chain` so the release is re-checked (cargo-deny for Rust, osv-scanner for npm) before it ships. `security.yml` scans in parallel for reporting — it does not gate `publish` (see [Security](#security)). The only sub-workflow call is `security` → `security.yml`.
+**Notes** — pin via `@v0` (rolling major) or `@x.y.z`. `self-release.yml` moves `v0` to each stable release, so `@v0` always tracks the latest. `@x.y.z` pins the workflow file. The composite actions it calls are hardcoded `@v0`, so `@x.y.z` is not a full freeze — the nested actions still follow `v0`. Jobs run in parallel except each `publish`, which `needs: [supply-chain, secrets]` so the release is re-checked (cargo-deny or osv-scanner, plus gitleaks) before it ships. `security.yml` scans in parallel for reporting — it does not gate `publish` (see [Security](#security)). The only sub-workflow call is `security` → `security.yml`.
 
 ---
 
@@ -189,7 +211,7 @@ Reusable sub-workflow with three parallel scans:
 | `javascript/base` | JavaScript | Sets up Node + corepack pnpm, caches the store, writes `.npmrc` from env, then installs, lints, builds (when present), tests. |
 | `rust/base` | Rust | Resolves the toolchain from `rust-toolchain.toml`, caches the `~/.cargo` deps, runs [`rust/native-deps`](#composable-actions), then `cargo fmt --check`, `clippy -D warnings`, `test`. |
 | `rust/native-deps` | Rust | Runs the optional `ci/setup.sh` native build-dependency hook. Shared by `rust/base` and the publish verify build. No-op when absent. |
-| `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. The shared definition behind `security.yml` and self-CI. |
+| `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. The shared definition behind `security.yml`, the package `secrets` gate, and self-CI. |
 | `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml` and the npm `supply-chain` gate. |
 | `security/cargo-deny` | Rust | Runs cargo-deny (sources, licenses, bans, advisories) against `deny.toml`. The Rust `supply-chain` gate. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |

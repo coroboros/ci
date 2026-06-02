@@ -7,6 +7,7 @@
 - `rust/base`, `rust/native-deps` — composites. `rust/base` resolves the toolchain from `rust-toolchain.toml`, caches `~/.cargo`, runs the optional `ci/setup.sh` native-dependency hook, then lints and tests; `rust/native-deps` is that hook, shared with the publish verify build.
 - `javascript/base` — wrap `pnpm install` in Socket Firewall (`sfw`), blocking confirmed-malicious packages before download. Fail-closed. The GitHub-runner equivalent of the image-baked firewall on GitLab.
 - `self-release` — move the rolling `v0` major tag to each stable `coroboros/ci` release, so `@v0` consumers track the latest release without a manual tag push.
+- `secrets` gate — gitleaks gates `publish` via `needs:` in the npm and Rust package workflows, alongside the supply-chain gate. A leaked secret blocks the release through the template's job graph, not the consumer's branch protection — parity with the GitLab `security-gate` stage.
 
 ### Fixes
 - `javascript-npm-packages` — gate `publish` on a new `supply-chain` job (osv-scanner, `needs:`). A known vulnerability now blocks the npm release; previously osv-scanner ran only in the parallel `security` job and could not stop a publish.
