@@ -47,8 +47,8 @@ jobs:
 
   # gitleaks gates the release on a leaked secret, enforced by the template's
   # `needs:` rather than the consumer's branch protection — the GitLab
-  # `security-gate` equivalent. Runs on every push and gates `publish`. The
-  # `security` job runs gitleaks again in parallel for the SARIF report.
+  # `security-gate` equivalent. The `security` job runs gitleaks again in
+  # parallel for the SARIF report.
   secrets:
     runs-on: ubuntu-latest
     steps:
