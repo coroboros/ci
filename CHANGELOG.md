@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.2.0 - 02/06/2026
+
+### Features
+- `rust-packages` — bundled Cargo pipeline: `preflight` (`cargo fmt --check` / `clippy -D warnings` / `test` on a Linux, macOS, Windows matrix), `supply-chain` (`cargo-deny`), tag-driven `publish` to crates.io, and the shared `security` scan. `supply-chain` runs on every push and gates `publish` (`needs:`), so cargo-deny re-checks the release against the latest advisory DB before it ships rather than scanning in parallel. Publish authenticates with crates.io OIDC Trusted Publishing by default (`rust-lang/crates-io-auth-action`); `CARGO_REGISTRY_TOKEN` is the first-publish bootstrap for a new crate. The verify build runs on publish — no `--no-verify` — so a crate that only builds in-workspace fails before an immutable release.
+- `rust/base`, `rust/native-deps` — composites. `rust/base` resolves the toolchain from `rust-toolchain.toml`, caches `~/.cargo`, runs the optional `ci/setup.sh` native-dependency hook, then lints and tests; `rust/native-deps` is that hook, shared with the publish verify build.
+- `javascript/base` — wrap `pnpm install` in Socket Firewall (`sfw`), blocking confirmed-malicious packages before download. Fail-closed. The GitHub-runner equivalent of the image-baked firewall on GitLab.
+- `self-release` — move the rolling `v0` major tag to each stable `coroboros/ci` release, so `@v0` consumers track the latest release without a manual tag push.
+
+### Fixes
+- `javascript-npm-packages` — gate `publish` on a new `supply-chain` job (osv-scanner, `needs:`). A known vulnerability now blocks the npm release; previously osv-scanner ran only in the parallel `security` job and could not stop a publish.
+- `release` — drop the "move rolling major tag" step from the npm and Rust publish jobs. Reusable workflows run in the caller's context, so it force-pushed a meaningless `vN` ref into every consumer repo; the `v0` ref now moves on `coroboros/ci`'s own release (see `self-release`).
+
+### Refactor
+- `security` — extract the gitleaks, osv-scanner, and cargo-deny scanners into `security/*` composites (single source). `security.yml` references them and the package `supply-chain` gates reuse them, so osv-scanner is defined once. The osv composite scans only when a supported manifest is present (`pnpm-lock.yaml`, `Cargo.lock`, `go.mod`, and the rest), so a dependency-less repo wiring in `security.yml` skips the scan instead of failing on osv's no-manifest error. `self-security.yml` runs the composites via local refs to self-test them pre-release.
+- `release/commit-artifacts` — extract the commit-back step shared by the npm and Rust publish jobs into a composite (`files` input, `[skip ci]`), mirroring GitLab's `commit-release-artifacts`.
+
+### Documentation
+- `README`, `SECURITY.md` — document the Rust supply-chain model (`cargo-deny` baseline, residual `build.rs` and no-cooldown gaps), the Socket Firewall and release-age cooldown, and the publish auth paths; collapse cross-references to remove duplication; add the `sfw` proxy-inspection caveat for parity with GitLab.
+
+### Configuration
+- `package.json` — bump to `0.2.0` (was `0.1.13`, lagging the `0.1.14` tag).
+
 ## v0.1.14 - 01/06/2026
 
 ### Fixes
