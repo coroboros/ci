@@ -1,0 +1,122 @@
+# Rust Cargo Packages CI
+name: Rust Packages
+
+on:
+  workflow_call:
+    secrets:
+      CARGO_REGISTRY_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    if: ${{ github.ref_type == 'branch' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/check-docs@v0
+      - uses: coroboros/ci/.github/actions/rust/base@v0
+
+  supply-chain:
+    if: ${{ github.ref_type == 'branch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: cargo-deny
+        shell: bash
+        run: |
+          if [ ! -f deny.toml ]; then
+            echo "::notice::No deny.toml — skipping supply-chain check"
+            exit 0
+          fi
+          cargo install cargo-deny --locked
+          cargo deny check
+
+  publish:
+    if: ${{ github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # GitHub Release + commit-back to main
+      id-token: write   # crates.io OIDC (when migrated off the token)
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify tag points to main HEAD
+        shell: bash
+        run: |
+          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
+            echo "::error::main has moved since the tag was pushed. Resolve manually."
+            echo "  Tag SHA:    ${GITHUB_SHA}"
+            echo "  main HEAD:  $(git rev-parse HEAD)"
+            exit 1
+          fi
+          echo "main HEAD matches tag SHA (${GITHUB_SHA})"
+
+      - uses: coroboros/ci/.github/actions/check-docs@v0
+
+      - name: Native build dependencies
+        shell: bash
+        run: |
+          if [ -f ci/setup.sh ]; then
+            bash ci/setup.sh
+          fi
+
+      - name: Pin Cargo.toml to tag
+        shell: bash
+        run: |
+          cargo install cargo-edit --locked
+          cargo set-version "${GITHUB_REF_NAME}"
+
+      - id: changelog
+        uses: coroboros/ci/.github/actions/release/generate-changelog@v0
+
+      - name: Publish to crates.io
+        shell: bash
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -n "${CARGO_REGISTRY_TOKEN}" ]; then
+            echo "Publishing to crates.io"
+            cargo publish --locked --allow-dirty
+          else
+            echo "::notice::No CARGO_REGISTRY_TOKEN — skipping crates.io publish"
+          fi
+
+      - uses: coroboros/ci/.github/actions/release/github-release@v0
+        with:
+          body: ${{ steps.changelog.outputs.body }}
+
+      - name: Commit release artifacts back to main
+        shell: bash
+        run: |
+          git add Cargo.toml Cargo.lock CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "::notice::No release artifacts to commit (nothing changed)"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: release ${GITHUB_REF_NAME}"
+            git push origin HEAD:main
+          fi
+
+      - name: Move rolling major tag
+        if: ${{ !contains(github.ref_name, '-') }}
+        shell: bash
+        run: |
+          major="$(echo "${GITHUB_REF_NAME}" | cut -d. -f1)"
+          rolling="v${major}"
+          git tag -f "${rolling}" HEAD
+          git push -f origin "${rolling}"
+          echo "::notice::Moved rolling tag ${rolling} to $(git rev-parse HEAD)"
+
+  security:
+    uses: ./.github/workflows/security.yml

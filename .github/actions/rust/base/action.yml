@@ -1,0 +1,55 @@
+# Rust Base Action Composite
+name: rust-base
+description: Base setup for a Rust pipeline job — toolchain, cargo cache, optional native-dep hook, then fmt, clippy, test.
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      name: Resolve Rust toolchain
+      shell: bash
+      run: |
+        if [ ! -f rust-toolchain.toml ]; then
+          echo "::error::rust-toolchain.toml is required at the repo root"
+          exit 1
+        fi
+        channel="$(grep -E '^[[:space:]]*channel[[:space:]]*=' rust-toolchain.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+        echo "Resolved Rust toolchain: ${channel:-unset} (from rust-toolchain.toml)"
+        # rustup installs the pinned toolchain and its components on first cargo use.
+
+    - name: Setup cargo cache
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+      with:
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Native build dependencies
+      shell: bash
+      run: |
+        # Convention over inputs: a consumer with native deps (a `-sys` crate, a
+        # test fixture) ships `ci/setup.sh` to install system packages and export
+        # env via $GITHUB_ENV. Pure-Rust crates ship nothing and this is a no-op.
+        if [ -f ci/setup.sh ]; then
+          echo "Running consumer native-dep hook: ci/setup.sh"
+          bash ci/setup.sh
+        else
+          echo "No ci/setup.sh — pure-Rust package, nothing to install"
+        fi
+
+    - name: Format
+      shell: bash
+      run: cargo fmt --check
+
+    - name: Lint
+      shell: bash
+      run: cargo clippy --all-targets -- -D warnings
+
+    - name: Test
+      shell: bash
+      run: cargo test
