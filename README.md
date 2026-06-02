@@ -74,8 +74,7 @@ Consumer requirements:
 6. Generate `CHANGELOG.md` section via [`release/generate-changelog`](#composable-actions)
 7. Publish to npm — OIDC + provenance or token-based via `.npmrc` (see [Security](#security))
 8. Create GitHub Release via [`release/github-release`](#composable-actions)
-9. Commit release artifacts back to `main` as `chore: release ${tag}`
-10. Move rolling major tag `vN` to the release commit (skipped on pre-release tags)
+9. Commit release artifacts back to `main` via [`release/commit-artifacts`](#composable-actions)
 
 </details>
 
@@ -141,8 +140,7 @@ Consumer requirements:
 5. Generate `CHANGELOG.md` section via [`release/generate-changelog`](#composable-actions)
 6. `cargo publish` to crates.io when `CARGO_REGISTRY_TOKEN` is set (absent → skipped)
 7. Create GitHub Release via [`release/github-release`](#composable-actions)
-8. Commit `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md` back to `main` as `chore: release ${tag}`
-9. Move rolling major tag `vN` to the release commit (skipped on pre-release tags)
+8. Commit `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md` back to `main` via [`release/commit-artifacts`](#composable-actions)
 
 </details>
 
@@ -180,6 +178,7 @@ Imposed on every Coroboros workflow. Standalone wire-up — see [Examples](#exam
 | `rust/base` | Rust | Resolves the toolchain from `rust-toolchain.toml`, caches the `~/.cargo` deps, runs the optional `ci/setup.sh` native-dep hook, then `cargo fmt --check`, `clippy -D warnings`, `test`. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
+| `release/commit-artifacts` | transverse | Stages the given files and commits them back to `main` as `chore: release ${tag} [skip ci]`. No-op when nothing changed. |
 
 ---
 

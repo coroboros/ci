@@ -86,28 +86,9 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.body }}
 
-      - name: Commit release artifacts back to main
-        shell: bash
-        run: |
-          git add Cargo.toml Cargo.lock CHANGELOG.md
-          if git diff --staged --quiet; then
-            echo "::notice::No release artifacts to commit (nothing changed)"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "chore: release ${GITHUB_REF_NAME}"
-            git push origin HEAD:main
-          fi
-
-      - name: Move rolling major tag
-        if: ${{ !contains(github.ref_name, '-') }}
-        shell: bash
-        run: |
-          major="$(echo "${GITHUB_REF_NAME}" | cut -d. -f1)"
-          rolling="v${major}"
-          git tag -f "${rolling}" HEAD
-          git push -f origin "${rolling}"
-          echo "::notice::Moved rolling tag ${rolling} to $(git rev-parse HEAD)"
+      - uses: coroboros/ci/.github/actions/release/commit-artifacts@v0
+        with:
+          files: Cargo.toml Cargo.lock CHANGELOG.md
 
   security:
     uses: ./.github/workflows/security.yml
