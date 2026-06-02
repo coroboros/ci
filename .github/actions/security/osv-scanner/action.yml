@@ -1,0 +1,43 @@
+# Security OSV Scanner Action Composite
+name: security-osv-scanner
+description: Scan dependency manifests for known vulnerabilities (OSV.dev). Skips a repo with none; fails on a known vulnerability.
+
+runs:
+  using: composite
+  steps:
+    - id: detect
+      shell: bash
+      # osv-scanner errors when it finds no manifest. Gate it on a file osv can
+      # resolve, so a dependency-less repo (docs, config, this CI repo itself)
+      # wiring in security.yml skips the scan instead of failing on it. A real
+      # dependency repo carries one of these — extend the list as ecosystems land.
+      run: |
+        manifests=(
+          package-lock.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb
+          Cargo.lock
+          go.mod
+          requirements.txt poetry.lock Pipfile.lock uv.lock
+          Gemfile.lock
+          composer.lock
+        )
+        found=""
+        for m in "${manifests[@]}"; do
+          if [ -n "$(find . -name "${m}" -not -path '*/node_modules/*' -not -path '*/.git/*' -print -quit)" ]; then
+            found="${m}"
+            break
+          fi
+        done
+        if [ -n "${found}" ]; then
+          echo "::notice::osv-scanner: ${found} present — scanning"
+          echo "scan=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "::notice::osv-scanner: no supported manifest — skipping (nothing to scan)"
+          echo "scan=false" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - if: ${{ steps.detect.outputs.scan == 'true' }}
+      uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2  # v2.3.8
+      with:
+        scan-args: |-
+          --recursive
+          ./

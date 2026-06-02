@@ -1,6 +1,11 @@
 # Self-CI Security
 name: Self-CI Security
 
+# Runs the security composites via local `./` refs so a PR's changes to them are
+# self-tested before release. security.yml (the consumer-facing reusable workflow)
+# pins the same composites at @v0; a reusable workflow can't use local refs — they
+# resolve against the caller's checkout — so this repo exercises them directly.
+# coroboros/ci ships no dependency manifest, so osv-scanner exercises its skip path.
 on:
   push:
     branches: [main]
@@ -10,5 +15,16 @@ permissions:
   contents: read
 
 jobs:
-  security:
-    uses: ./.github/workflows/security.yml
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/security/gitleaks
+
+  osv-scanner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: ./.github/actions/security/osv-scanner
