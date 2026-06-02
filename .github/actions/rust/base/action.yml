@@ -41,8 +41,8 @@ runs:
 
     - name: Lint
       shell: bash
-      run: cargo clippy --all-targets -- -D warnings
+      run: cargo clippy --all-targets --locked -- -D warnings
 
     - name: Test
       shell: bash
-      run: cargo test
+      run: cargo test --locked

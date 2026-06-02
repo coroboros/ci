@@ -23,6 +23,18 @@ jobs:
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/rust/base@v0
 
+  # cargo-deny owns the Rust supply-chain controls osv-scanner doesn't: crate
+  # sources (crates.io only), licenses, banned/wildcard deps, and unmaintained or
+  # yanked advisories. Reads the repo's deny.toml.
+  supply-chain:
+    if: ${{ github.ref_type == 'branch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe  # v2.0.20
+        with:
+          command: check
+
   publish:
     if: ${{ github.ref_type == 'tag' }}
     runs-on: ubuntu-latest

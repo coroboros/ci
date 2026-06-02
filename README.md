@@ -96,7 +96,8 @@ Bundled Cargo CI. Tag-driven release, same as the npm pipeline.
 
 Consumer requirements:
 - `rust-toolchain.toml` — pins the channel and components (`rustup` installs them on first `cargo` use).
-- `Cargo.toml` and `Cargo.lock`.
+- `Cargo.toml` and a committed `Cargo.lock` — `clippy` and `test` run `--locked`.
+- `deny.toml` — the cargo-deny supply-chain policy (sources, licenses, bans, advisories). See [Security](#security) for the baseline.
 - `ci/setup.sh` — optional. Installs native build dependencies (a `-sys` crate's toolchain, test fixtures) and exports env via `$GITHUB_ENV`. A no-op when absent.
 - `CARGO_REGISTRY_TOKEN` secret — optional. Enables the crates.io publish on tag.
 
@@ -111,6 +112,17 @@ Consumer requirements:
 1. Checkout
 2. Run [`check-docs`](#composable-actions)
 3. Run [`rust/base`](#composable-actions)
+
+</details>
+
+<details>
+<summary><em>supply-chain</em></summary>
+
+<br>
+
+**Trigger**: `branch push`
+
+`cargo-deny check` (SHA-pinned action) reads `deny.toml`: crate sources, licenses, bans, and advisories (vulnerabilities, unmaintained, yanked). See [Security](#security).
 
 </details>
 
@@ -283,6 +295,51 @@ Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` inte
 - `--ignore-scripts` — skips lifecycle scripts (`preinstall`, `install`, `postinstall`) of every dependency. Cuts the postinstall supply-chain vector.
 
 pnpm CLI resolved via corepack from `packageManager`. No floating version reaches the runner.
+
+</details>
+
+<details>
+<summary><em>Supply chain — Rust (<code>rust-packages.yml</code>)</em></summary>
+
+<br>
+
+The GitLab pipeline hardens npm at the image layer — cooldown, Socket Firewall, `--ignore-scripts`, digest pins. GitHub-hosted runners share no base image, so the Rust pipeline enforces the same risk model in the workflow:
+
+| Risk | Rust control |
+| :--- | :--- |
+| Untrusted source, typosquat | `cargo-deny` sources — crates.io only; git and alternative registries denied |
+| Lock drift, tampered dependencies | committed `Cargo.lock` + `--locked` on `clippy` and `test` — fails on a stale or altered lock |
+| Known vulnerability | `osv-scanner` (Cargo.lock) and `cargo-deny` advisories — RustSec vulnerabilities, unmaintained, yanked |
+| License drift | `cargo-deny` licenses — allow-list |
+| Banned or wildcard dependency | `cargo-deny` bans |
+
+`cargo-deny` runs on every branch push via a SHA-pinned action, reading the repo's `deny.toml`. The baseline:
+
+```toml
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+allow = [
+  "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause",
+  "BSD-3-Clause", "0BSD", "ISC", "Zlib", "MPL-2.0", "Unicode-3.0",
+  "Unlicense", "CDLA-Permissive-2.0", "BSL-1.0",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+```
+
+Two residual risks have no clean CI control. Both are documented here:
+- **Build scripts run.** `cargo` has no `--ignore-scripts`; `build.rs` and proc-macros execute at build time. `--locked`, `cargo-deny` bans, and dependency review reduce the exposure; they do not remove it.
+- **No publish cooldown.** crates.io has no `minimumReleaseAge`, so a freshly hijacked version is held off by the committed lock and `cargo-deny` advisories rather than a time delay.
 
 </details>
 
