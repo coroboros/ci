@@ -289,12 +289,41 @@ Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` inte
 
 <br>
 
-`pnpm install --frozen-lockfile --ignore-scripts` runs inside `javascript/base`.
+`sfw pnpm install --frozen-lockfile --ignore-scripts` runs inside `javascript/base` (Socket Firewall wraps the fetch — see Firewall below).
 
 - `--frozen-lockfile` — fails on stale or tampered `pnpm-lock.yaml`. Gate against transitive-dependency injection.
 - `--ignore-scripts` — skips lifecycle scripts (`preinstall`, `install`, `postinstall`) of every dependency. Cuts the postinstall supply-chain vector.
 
 pnpm CLI resolved via corepack from `packageManager`. No floating version reaches the runner.
+
+</details>
+
+<details>
+<summary><em>Firewall — Socket Firewall (<code>sfw</code>)</em></summary>
+
+<br>
+
+`javascript/base` installs Socket Firewall (`npm i -g sfw`, the free tokenless build) and runs the install through it (`sfw pnpm install …`). `sfw` proxies the registry fetch and blocks packages Socket has confirmed malicious before they download — the GitHub-runner equivalent of the image-baked firewall in the GitLab pipeline.
+
+Fail-closed: if `sfw` cannot install or run, the install step fails rather than fetching unprotected. The free build needs no account or token, and inspects public-registry fetches out of the box. The trade-off of the runtime install (no shared image) is a dependency on Socket's service at fetch time.
+
+</details>
+
+<details>
+<summary><em>Cooldown — minimum release age</em></summary>
+
+<br>
+
+Quarantine freshly published versions so a hijacked release is not pulled inside the window most campaigns are caught in. pnpm 11 reads the setting from `pnpm-workspace.yaml`, not `.npmrc`. Add to the consuming repo:
+
+```yaml
+# pnpm-workspace.yaml
+minimumReleaseAge: 10080            # 7 days, in minutes
+minimumReleaseAgeExclude:
+  - '@coroboros/*'                  # internal packages install immediately
+```
+
+On pnpm 10.x the `.npmrc` form `minimum-release-age=10080` also works. `@coroboros/*` is excluded so a pipeline can consume a just-published internal package.
 
 </details>
 

@@ -33,6 +33,10 @@ runs:
         corepack enable
         pnpm --version
 
+    - name: Install Socket Firewall
+      shell: bash
+      run: npm install -g sfw
+
     - name: Setup pnpm cache
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
       with:
@@ -55,7 +59,9 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile --ignore-scripts
+      # Wrapped by Socket Firewall — the registry fetch is inspected and confirmed-
+      # malicious packages are blocked before download. Fail-closed: no sfw, no install.
+      run: sfw pnpm install --frozen-lockfile --ignore-scripts
 
     - name: Lint
       shell: bash
