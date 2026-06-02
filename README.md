@@ -303,7 +303,7 @@ pnpm CLI resolved via corepack from `packageManager`. No floating version reache
 
 <br>
 
-`javascript/base` installs Socket Firewall (`npm i -g sfw`, the free tokenless build) and runs the install through it (`sfw pnpm install …`). `sfw` proxies the registry fetch and blocks packages Socket has confirmed malicious before they download — the GitHub-runner equivalent of the image-baked firewall in the GitLab pipeline.
+`javascript/base` installs Socket Firewall (`npm i -g sfw`, the free tokenless build) and runs the install through it (`sfw pnpm install ...`). `sfw` proxies the registry fetch and blocks packages Socket has confirmed malicious before they download. It is the GitHub-runner equivalent of the image-baked firewall in the GitLab pipeline.
 
 Fail-closed: if `sfw` cannot install or run, the install step fails rather than fetching unprotected. The free build needs no account or token, and inspects public-registry fetches out of the box. The trade-off of the runtime install (no shared image) is a dependency on Socket's service at fetch time.
 
