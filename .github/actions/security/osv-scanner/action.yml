@@ -13,10 +13,10 @@ runs:
       # dependency repo carries one of these — extend the list as ecosystems land.
       run: |
         manifests=(
-          package-lock.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb
+          package-lock.json pnpm-lock.yaml yarn.lock bun.lock
           Cargo.lock
           go.mod
-          requirements.txt poetry.lock Pipfile.lock uv.lock
+          requirements.txt poetry.lock Pipfile.lock pdm.lock uv.lock
           Gemfile.lock
           composer.lock
         )
