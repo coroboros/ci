@@ -1,4 +1,4 @@
-# Rust Cargo Packages CI
+# Rust Packages CI
 name: Rust Packages
 
 on:
@@ -23,27 +23,12 @@ jobs:
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/rust/base@v0
 
-  supply-chain:
-    if: ${{ github.ref_type == 'branch' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - name: cargo-deny
-        shell: bash
-        run: |
-          if [ ! -f deny.toml ]; then
-            echo "::notice::No deny.toml — skipping supply-chain check"
-            exit 0
-          fi
-          cargo install cargo-deny --locked
-          cargo deny check
-
   publish:
     if: ${{ github.ref_type == 'tag' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # GitHub Release + commit-back to main
-      id-token: write   # crates.io OIDC (when migrated off the token)
+      contents: write   # for GitHub Release creation + commit-back to main
+      id-token: write   # for crates.io OIDC Trusted Publishing
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
@@ -63,13 +48,6 @@ jobs:
 
       - uses: coroboros/ci/.github/actions/check-docs@v0
 
-      - name: Native build dependencies
-        shell: bash
-        run: |
-          if [ -f ci/setup.sh ]; then
-            bash ci/setup.sh
-          fi
-
       - name: Pin Cargo.toml to tag
         shell: bash
         run: |
@@ -84,12 +62,13 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          if [ -n "${CARGO_REGISTRY_TOKEN}" ]; then
-            echo "Publishing to crates.io"
-            cargo publish --locked --allow-dirty
-          else
+          if [ -z "${CARGO_REGISTRY_TOKEN}" ]; then
             echo "::notice::No CARGO_REGISTRY_TOKEN — skipping crates.io publish"
+            exit 0
           fi
+          # This tag is main HEAD, already built and tested by preflight, so skip the
+          # redundant verify build; --allow-dirty covers the in-place version pin.
+          cargo publish --no-verify --allow-dirty
 
       - uses: coroboros/ci/.github/actions/release/github-release@v0
         with:

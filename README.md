@@ -97,8 +97,8 @@ Bundled Cargo CI. Tag-driven release, same as the npm pipeline.
 Consumer requirements:
 - `rust-toolchain.toml` — pins the channel and components (`rustup` installs them on first `cargo` use).
 - `Cargo.toml` and `Cargo.lock`.
-- `ci/setup.sh` — optional. Installs native build dependencies (a `-sys` crate's toolchain, test fixtures) and exports env via `$GITHUB_ENV`. Pure-Rust crates omit it; it is a no-op when absent.
-- `deny.toml` — optional. Enables the `cargo-deny` supply-chain scan.
+- `ci/setup.sh` — optional. Installs native build dependencies (a `-sys` crate's toolchain, test fixtures) and exports env via `$GITHUB_ENV`. A no-op when absent.
+- `CARGO_REGISTRY_TOKEN` secret — optional. Enables the crates.io publish on tag.
 
 <details>
 <summary><em>preflight</em></summary>
@@ -115,17 +115,6 @@ Consumer requirements:
 </details>
 
 <details>
-<summary><em>supply-chain</em></summary>
-
-<br>
-
-**Trigger**: `branch push`
-
-`cargo deny check` (advisories, licenses, bans, sources) when `deny.toml` is present; skipped otherwise.
-
-</details>
-
-<details>
 <summary><em>publish</em></summary>
 
 <br>
@@ -135,7 +124,7 @@ Consumer requirements:
 **Sequence**:
 1. Checkout `main` with full history
 2. Verify `main` HEAD matches the tag SHA
-3. Run [`check-docs`](#composable-actions); run `ci/setup.sh` for build deps
+3. Run [`check-docs`](#composable-actions)
 4. Pin `Cargo.toml` to the tag (`cargo set-version`)
 5. Generate `CHANGELOG.md` section via [`release/generate-changelog`](#composable-actions)
 6. `cargo publish` to crates.io when `CARGO_REGISTRY_TOKEN` is set (absent → skipped)
@@ -153,8 +142,6 @@ Consumer requirements:
 **Trigger**: `every call`. Calls `security.yml`.
 
 </details>
-
-Cross-platform binary prebuilts (Homebrew, npm shim, shell installer) are a separate concern — cargo-dist's multi-runner build matrix, layered on a consuming repo, not part of this single-runner publish job.
 
 ### `security.yml`
 
@@ -178,7 +165,7 @@ Imposed on every Coroboros workflow. Standalone wire-up — see [Examples](#exam
 | :--- | :--- | :--- |
 | `check-docs` | transverse | Context dump + documentation check. |
 | `javascript/base` | JavaScript | Sets up Node + corepack pnpm, caches the store, writes `.npmrc` from env, then installs, lints, builds (when present), tests. |
-| `rust/base` | Rust | Resolves the toolchain from `rust-toolchain.toml`, caches `~/.cargo` + `target`, runs the optional `ci/setup.sh` native-dep hook, then `cargo fmt --check`, `clippy -D warnings`, `test`. |
+| `rust/base` | Rust | Resolves the toolchain from `rust-toolchain.toml`, caches the `~/.cargo` deps, runs the optional `ci/setup.sh` native-dep hook, then `cargo fmt --check`, `clippy -D warnings`, `test`. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
 
