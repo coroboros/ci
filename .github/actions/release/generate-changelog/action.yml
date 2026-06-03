@@ -33,10 +33,10 @@ runs:
         ' CHANGELOG.md 2>/dev/null || true)"
 
         if [ -n "${existing}" ]; then
-          echo "Using existing CHANGELOG section for ${tag}"
+          echo "::notice::Using existing CHANGELOG section for ${tag}"
           body="${existing}"
         else
-          echo "Auto-generating CHANGELOG section for ${tag}"
+          echo "::notice::Auto-generating CHANGELOG section for ${tag}"
           prev_tag="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
           commits_range="${prev_tag:+${prev_tag}..}HEAD"
 

@@ -65,12 +65,10 @@ jobs:
         shell: bash
         run: |
           if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
-            echo "::error::main has moved since the tag was pushed. Resolve manually."
-            echo "  Tag SHA:    ${GITHUB_SHA}"
-            echo "  main HEAD:  $(git rev-parse HEAD)"
+            echo "::error::main has moved since the tag was pushed — tag ${GITHUB_SHA}, main HEAD $(git rev-parse HEAD). Resolve manually."
             exit 1
           fi
-          echo "main HEAD matches tag SHA (${GITHUB_SHA})"
+          echo "::notice::main HEAD matches tag SHA (${GITHUB_SHA})"
 
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/javascript/base@v0
@@ -86,7 +84,7 @@ jobs:
         shell: bash
         run: |
           if [ -n "${NPM_PACKAGE_REGISTRY_TOKEN}" ]; then
-            echo "Publishing with NPM_PACKAGE_REGISTRY_TOKEN auth via npm CLI"
+            echo "::notice::Publishing with NPM_PACKAGE_REGISTRY_TOKEN auth via npm CLI"
             # The pre-Trusted-Publisher bootstrap path can't reliably use
             # pnpm 11.x (auto-OIDC, no fallback to .npmrc token) or pnpm
             # 10.33.0 (corepack intercepts every `pnpm`; the standalone
@@ -99,7 +97,7 @@ jobs:
             npm --version
             npm publish --ignore-scripts --access public
           else
-            echo "Publishing with OIDC Trusted Publisher + provenance"
+            echo "::notice::Publishing with OIDC Trusted Publisher + provenance"
             pnpm publish --provenance --no-git-checks --ignore-scripts
           fi
 

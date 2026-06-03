@@ -19,7 +19,7 @@ runs:
           exit 1
         fi
         node_version="$(tr -d '[:space:]v' < .node-version)"
-        echo "Resolved Node.js version: ${node_version} (from .node-version)"
+        echo "::notice::Resolved Node.js version: ${node_version} (from .node-version)"
         echo "node-version=${node_version}" >> "${GITHUB_OUTPUT}"
 
     - name: Setup Node.js
@@ -72,7 +72,7 @@ runs:
         if [ "$(jq .scripts.build package.json)" != "null" ]; then
           pnpm run build
         else
-          echo "Non required script 'build' skipped"
+          echo "::notice::Non required script 'build' skipped"
         fi
 
     - name: Test

@@ -230,14 +230,12 @@ Reusable sub-workflow with three parallel scans:
 | `javascript/base` | JavaScript | Sets up Node + corepack pnpm, caches the store, writes `.npmrc` from env, then installs, lints, builds (when present), tests. |
 | `rust/base` | Rust | Resolves the toolchain from `rust-toolchain.toml`, caches the `~/.cargo` deps, runs [`rust/native-deps`](#composable-actions), then `cargo fmt --check`, `clippy -D warnings`, `test`. |
 | `rust/native-deps` | Rust | Runs the optional `ci/setup.sh` native build-dependency hook. Shared by `rust/base` and the publish verify build. No-op when absent. |
-| `rust/pin-version` | Rust | Pins `Cargo.toml` to the current tag (`cargo set-version`). Shared by the Rust `publish` and binary jobs. |
 | `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. The shared definition behind `security.yml`, the package `secrets` gate, and self-CI. |
 | `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml`, the npm `supply-chain` gate, and self-CI. |
 | `security/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The Rust `supply-chain` gate. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
 | `release/commit-artifacts` | transverse | Stages the given files and commits them back to `main` as `chore: release ${tag} [skip ci]`. No-op when nothing changed. |
-| `release/dist` | Rust | Installs cargo-dist (the `dist` binary), version-pinned. Used by the `rust-packages` binary jobs (`dist plan` / `build`). |
 
 ---
 

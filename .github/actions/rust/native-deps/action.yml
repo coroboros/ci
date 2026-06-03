@@ -11,5 +11,5 @@ runs:
         if [ -f ci/setup.sh ]; then
           bash ci/setup.sh
         else
-          echo "No ci/setup.sh — pure-Rust package"
+          echo "::notice::No ci/setup.sh — pure-Rust package"
         fi

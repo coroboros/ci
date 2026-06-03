@@ -1,11 +1,8 @@
 # Self-CI Security
 name: Self-CI Security
 
-# Runs the security composites via local `./` refs so a PR's changes to them are
-# self-tested before release. security.yml (the consumer-facing reusable workflow)
-# pins the same composites at @v0; a reusable workflow can't use local refs — they
-# resolve against the caller's checkout — so this repo exercises them directly.
-# coroboros/ci ships no dependency manifest, so osv-scanner exercises its skip path.
+# Local `./` refs so a PR self-tests its own composite changes — the @v0-pinned
+# security.yml can't (a reusable workflow's `./` resolves to the caller's checkout).
 on:
   push:
     branches: [main]

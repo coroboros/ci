@@ -13,7 +13,7 @@ Reusable GitHub Actions workflows + composite actions for the Coroboros stack.
 - `.github/workflows/rust-packages.yml` — bundled Cargo pipeline (`preflight` matrix / `supply-chain` / `publish` / `security`) + opt-in cargo-dist binary layer (`dist-plan` / `dist-build` / `dist-host` / `dist-publish`, gated on `[package.metadata.dist]`).
 - `.github/workflows/security.yml` — `gitleaks` + `dependency-review` + `osv-scanner` (gitleaks/osv wrap `security/*` composites; the package `supply-chain` gates reuse them).
 - `.github/workflows/{self,self-security,self-release}.yml` — self-CI: lint, gitleaks + osv (composites via local `./`), and the `v0` rolling-tag move.
-- `.github/actions/{check-docs,javascript/base,rust/{base,native-deps,pin-version},security/{gitleaks,osv-scanner,cargo-deny},release/{generate-changelog,github-release,commit-artifacts,dist}}/action.yml` — composites.
+- `.github/actions/{check-docs,javascript/base,rust/{base,native-deps},security/{gitleaks,osv-scanner,cargo-deny},release/{generate-changelog,github-release,commit-artifacts}}/action.yml` — composites.
 - `.github/dependabot.yml` — auto-PRs for pinned actions.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
 - `security/deny.toml` — canonical cargo-deny ruleset, imposed via `--config` (consumer `deny.toml` ignored; `deny.exceptions.toml` rejected).

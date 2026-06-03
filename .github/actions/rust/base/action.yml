@@ -13,7 +13,7 @@ runs:
           exit 1
         fi
         channel="$(grep -E '^[[:space:]]*channel[[:space:]]*=' rust-toolchain.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
-        echo "Resolved Rust toolchain: ${channel:-unset} (from rust-toolchain.toml)"
+        echo "::notice::Resolved Rust toolchain: ${channel:-unset} (from rust-toolchain.toml)"
 
     - name: Setup cargo cache
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4

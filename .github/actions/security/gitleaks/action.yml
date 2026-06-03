@@ -2,8 +2,7 @@
 name: security-gitleaks
 description: Install gitleaks (SHA-256 verified) and scan with the canonical Coroboros ruleset. Emits SARIF.
 
-# The caller checks out the repo to scan (fetch-depth: 0 for full history) before
-# using this composite.
+# The caller checks out the repo to scan (fetch-depth: 0) before using this composite.
 runs:
   using: composite
   steps:
@@ -50,7 +49,7 @@ runs:
         rc=$?
         set -e
 
-        echo "gitleaks exit code: ${rc}"
+        echo "::notice::gitleaks exit code: ${rc}"
         if [ "${rc}" = "0" ]; then
           echo "::notice::gitleaks: no leaks found"
         elif [ "${rc}" = "2" ]; then
