@@ -144,7 +144,7 @@ Consumer requirements:
 
 **Trigger**: `every push`. Gates `publish` via `needs:` — a release waits on it.
 
-`cargo-deny check` (SHA-pinned action) reads `deny.toml`: crate sources, licenses, bans, and advisories (vulnerabilities, unmaintained, yanked). Running on every push re-checks a tagged release against the latest advisory DB before it ships, not only at PR time. See [Security](#security).
+`cargo-deny check` (SHA-pinned action) applies the canonical imposed `security/deny.toml`: crate sources, licenses, bans, and advisories (vulnerabilities, unmaintained, unsound, yanked). Running on every push re-checks a tagged release against the latest advisory DB before it ships, not only at PR time. See [Security](#security).
 
 </details>
 
@@ -406,11 +406,11 @@ The GitLab pipeline hardens npm at the image layer — cooldown, Socket Firewall
 | :--- | :--- |
 | Untrusted source, typosquat | `cargo-deny` sources — crates.io only; git and alternative registries denied |
 | Lock drift, tampered dependencies | committed `Cargo.lock` + `--locked` on `clippy` and `test` — fails on a stale or altered lock |
-| Known vulnerability | `osv-scanner` (Cargo.lock) and `cargo-deny` advisories — RustSec vulnerabilities, unmaintained, yanked |
+| Known vulnerability | `osv-scanner` (Cargo.lock) and `cargo-deny` advisories — RustSec vulnerabilities, unmaintained, unsound, yanked |
 | License drift | `cargo-deny` licenses — allow-list |
 | Banned or wildcard dependency | `cargo-deny` bans |
 
-`cargo-deny` runs on every push via a SHA-pinned action and gates `publish` (`needs:`), so a tagged release is re-checked against the latest advisory DB before it ships — `security.yml` scans in parallel for reporting and does not block the release. It applies the canonical [`security/deny.toml`](security/deny.toml) via `--config`, sparse-checked from `coroboros/ci` — **imposed**, the same model as the [`gitleaks`](#composable-actions) ruleset. A consumer `deny.toml` is ignored; a `deny.exceptions.toml` fails the job. The ruleset hard-fails on vulnerability, yanked, unmaintained, and unsound advisories; restricts sources to crates.io (git and alternative registries denied); denies wildcard version requirements; and enforces a permissive license allow-list. Exceptions are changed centrally in `coroboros/ci`, never per repo.
+`cargo-deny` runs on every push via a SHA-pinned action and gates `publish` (`needs:`), so a tagged release is re-checked against the latest advisory DB before it ships — `security.yml` scans in parallel for reporting and does not block the release. The controls above are **imposed**: it applies the canonical [`security/deny.toml`](security/deny.toml) via `--config`, sparse-checked from `coroboros/ci` — the [`gitleaks`](#composable-actions) model. A consumer `deny.toml` is ignored; a `deny.exceptions.toml` fails the job. Exceptions are changed centrally in `coroboros/ci`, never per repo.
 
 **Publish auth.** crates.io publish uses OIDC Trusted Publishing by default — `rust-lang/crates-io-auth-action` mints a short-lived token per run, no long-lived secret in the repo. `CARGO_REGISTRY_TOKEN` is needed only to bootstrap the first publish of a new crate (Trusted Publishing binds to an existing crate); configure Trusted Publishing on crates.io afterwards and drop the token. The verify build runs on publish (no `--no-verify`). It compiles the packaged tarball standalone, catching a crate that only builds in-workspace before the immutable release lands.
 
