@@ -121,6 +121,7 @@ Consumer requirements:
 - `deny.toml` — the cargo-deny supply-chain policy (sources, licenses, bans, advisories). See [Security](#security) for the baseline.
 - `ci/setup.sh` — optional. Installs native build dependencies (a `-sys` crate's toolchain, test fixtures) and exports env via `$GITHUB_ENV`. A no-op when absent.
 - crates.io publishing — configure [OIDC Trusted Publishing](#security), or set `CARGO_REGISTRY_TOKEN` to bootstrap the first publish of a new crate. Tagged builds always publish.
+- binary distribution — optional. Declare `[package.metadata.dist]` in `Cargo.toml` (cargo-dist `0.32.0`) to attach prebuilt archives, shell/powershell installers, a Homebrew formula, and an npm shim to the release. Absent → source-only (crates.io), unchanged. Drop `release-plz`; the shared pipeline owns the release.
 
 <details>
 <summary><em>preflight</em></summary>
@@ -173,8 +174,26 @@ Consumer requirements:
 5. Pin `Cargo.toml` to the tag (`cargo set-version`)
 6. Generate `CHANGELOG.md` section via [`release/generate-changelog`](#composable-actions)
 7. `cargo publish` to crates.io — OIDC by default, token bootstrap for a new crate (see [Security](#security))
-8. Create GitHub Release via [`release/github-release`](#composable-actions)
+8. Create GitHub Release via [`release/github-release`](#composable-actions) — a draft when the consumer ships binaries (undrafted once assets upload), else final
 9. Commit `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md` back to `main` via [`release/commit-artifacts`](#composable-actions)
+
+</details>
+
+<details>
+<summary><em>binary distribution (opt-in)</em></summary>
+
+<br>
+
+**Trigger**: `tag push`, only when `Cargo.toml` declares `[package.metadata.dist]` (cargo-dist `0.32.0`). Library crates skip every job below with zero config; the release stays non-draft as above.
+
+The shared pipeline is the sole release authority — `publish` creates the one GitHub Release (a draft for binary repos), and these jobs attach artifacts to it. cargo-dist (`dist`) only builds; it never creates or owns a release.
+
+- **`dist-plan`** — detects the metadata, pins the version, runs `dist plan` to compute the per-target build matrix.
+- **`dist-build`** — matrix over the declared `targets`, gated by `supply-chain` and `secrets` (`needs:`); builds each prebuilt archive (`dist build --artifacts=local`).
+- **`dist-host`** — builds the global installers + Homebrew formula + npm shim (`dist build --artifacts=global`; final download URLs derive from repo + tag), uploads every asset to the release, then undrafts it.
+- **`dist-publish`** — commits the formula to the declared `tap` (`HOMEBREW_TAP_TOKEN`) and publishes the npm shim (OIDC + provenance, or `NPM_PACKAGE_REGISTRY_TOKEN` bootstrap). Each self-skips when its installer or secret is absent.
+
+`dist` is version-pinned via `cargo install cargo-dist --version 0.32.0 --locked`. Per-target Cargo features are not expressible in cargo-dist 0.32.0 — a build needing them (e.g. a Metal-accelerated macOS binary) resolves them consumer-side via `cfg(target_os = …)`. macOS Developer-ID signing + notarization are deferred.
 
 </details>
 
@@ -215,8 +234,9 @@ Reusable sub-workflow with three parallel scans:
 | `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml`, the npm `supply-chain` gate, and self-CI. |
 | `security/cargo-deny` | Rust | Runs cargo-deny (sources, licenses, bans, advisories) against `deny.toml`. The Rust `supply-chain` gate. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
-| `release/github-release` | transverse | Creates the GitHub Release for the current tag. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
+| `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
 | `release/commit-artifacts` | transverse | Stages the given files and commits them back to `main` as `chore: release ${tag} [skip ci]`. No-op when nothing changed. |
+| `release/dist` | Rust | Installs cargo-dist (the `dist` binary), version-pinned. Powers the opt-in binary-distribution jobs in `rust-packages.yml` (`dist plan` / `build`). |
 
 ---
 
@@ -279,6 +299,21 @@ Zero `inputs:` — configuration flows through the caller's `secrets:` block. Ev
 | `NPM_PACKAGE_REGISTRY` | ✔ | npm package registry URL. |
 | `NPM_PACKAGE_PROXY_REGISTRY` |  | Optional npm proxy registry URL. |
 | `NPM_PACKAGE_REGISTRY_TOKEN` |  | npm Granular Access Token, scoped to the publishing organization with create-new-package permission. Required only for the token bootstrap (first publish of a new scoped package, before npm Trusted Publisher is bound). Absent → OIDC. |
+
+</details>
+
+<details>
+<summary><em>Secrets — <code>rust-packages.yml</code></em></summary>
+
+<br>
+
+All optional. A consumer that wires none still gets crates.io plus prebuilt archives and installers on the Release; Homebrew and npm activate only when their secret (or OIDC) is configured.
+
+| name | required | description |
+| :--- | :---: | :--- |
+| `CARGO_REGISTRY_TOKEN` |  | crates.io token. Bootstraps the first publish of a new crate; absent → OIDC Trusted Publishing. |
+| `HOMEBREW_TAP_TOKEN` |  | Push access to the Homebrew tap repo named by `tap` in `[package.metadata.dist]`. Absent → the formula publish self-skips. |
+| `NPM_PACKAGE_REGISTRY_TOKEN` |  | npm token bootstrapping the first publish of the binary npm shim; absent → OIDC + provenance. |
 
 </details>
 
@@ -480,7 +515,7 @@ Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. 
 
 Third-party actions across workflows + composites are pinned to a commit SHA with an inline `# vX` comment. Floating refs (`@master`, `@main`, `@vX`) are banned.
 
-Self-CI binaries pinned by version. `actionlint` and `gitleaks` install from release tarballs with SHA-256 verification; `yamllint` via `pip install` with version pin. No `curl | bash`.
+Self-CI binaries pinned by version. `actionlint` and `gitleaks` install from release tarballs with SHA-256 verification; `yamllint` via `pip install` with version pin; `cargo-dist` via `cargo install --locked --version` (registry-checksum verified). No `curl | bash`.
 
 `.github/dependabot.yml` opens weekly grouped auto-PRs to bump pinned SHAs across `.github/workflows/*` and `.github/actions/**/action.yml`. Consumers should add their own ecosystem entries (e.g., `npm`).
 
@@ -553,10 +588,13 @@ jobs:
     uses: coroboros/ci/.github/workflows/rust-packages.yml@v0
     permissions:
       contents: write   # GitHub Release + commit-back on tag
-      id-token: write   # crates.io OIDC publish on tag
+      id-token: write   # crates.io + npm OIDC publish on tag
     secrets:
       # First publish of a new crate only — drop once Trusted Publishing is configured (see Security):
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      # Binary distribution ([package.metadata.dist] in Cargo.toml) — both optional:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
 ```
 
 </details>

@@ -1,0 +1,18 @@
+# Release cargo-dist Install Action Composite
+name: release-dist
+description: Install cargo-dist (the `dist` binary), version-pinned, on the runner.
+
+runs:
+  using: composite
+  steps:
+    - name: Install cargo-dist
+      shell: bash
+      env:
+        DIST_VERSION: "0.32.0"
+      run: |
+        if command -v dist >/dev/null 2>&1; then
+          echo "::notice::dist already on PATH: $(dist --version)"
+        else
+          cargo install cargo-dist --version "${DIST_VERSION}" --locked
+          dist --version
+        fi

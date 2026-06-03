@@ -6,6 +6,10 @@ inputs:
   body:
     description: Release notes body.
     required: true
+  draft:
+    description: Create the release as a draft. Binary repos undraft after assets upload; library repos leave it false.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -15,10 +19,16 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
         BODY: ${{ inputs.body }}
+        DRAFT: ${{ inputs.draft }}
       run: |
         notes="$(mktemp)"
         printf '%s' "${BODY}" > "${notes}"
+        draft_flag=()
+        if [ "${DRAFT}" = "true" ]; then
+          draft_flag=(--draft)
+        fi
         gh release create "${GITHUB_REF_NAME}" \
           --title "${GITHUB_REF_NAME}" \
-          --notes-file "${notes}"
+          --notes-file "${notes}" \
+          "${draft_flag[@]}"
         rm -f "${notes}"

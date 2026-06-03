@@ -6,6 +6,10 @@ on:
     secrets:
       CARGO_REGISTRY_TOKEN:
         required: false
+      HOMEBREW_TAP_TOKEN:
+        required: false
+      NPM_PACKAGE_REGISTRY_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -47,9 +51,120 @@ jobs:
           fetch-depth: 0
       - uses: coroboros/ci/.github/actions/security/gitleaks@v0
 
+  # Opt-in binary layer. Runs only when the consumer's Cargo.toml declares
+  # [package.metadata.dist]; `enabled` gates dist-build/host/publish and the
+  # release `draft` flag, so library crates skip the whole layer with zero config.
+  dist-plan:
+    if: ${{ github.ref_type == 'tag' }}
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.detect.outputs.enabled }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      tap: ${{ steps.detect.outputs.tap }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify tag points to main HEAD
+        shell: bash
+        run: |
+          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
+            echo "::error::main has moved since the tag was pushed. Resolve manually."
+            echo "  Tag SHA:    ${GITHUB_SHA}"
+            echo "  main HEAD:  $(git rev-parse HEAD)"
+            exit 1
+          fi
+          echo "main HEAD matches tag SHA (${GITHUB_SHA})"
+
+      - id: detect
+        name: Detect cargo-dist metadata
+        shell: bash
+        run: |
+          if grep -qE '^\[package\.metadata\.dist\]' Cargo.toml 2>/dev/null; then
+            echo "::notice::cargo-dist metadata present — binary distribution enabled"
+            tap="$(grep -E '^[[:space:]]*tap[[:space:]]*=' Cargo.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+            {
+              echo "enabled=true"
+              echo "tap=${tap}"
+            } >> "${GITHUB_OUTPUT}"
+          else
+            echo "::notice::no [package.metadata.dist] — binary jobs skip"
+            {
+              echo "enabled=false"
+              echo "tap="
+            } >> "${GITHUB_OUTPUT}"
+          fi
+
+      - if: ${{ steps.detect.outputs.enabled == 'true' }}
+        uses: coroboros/ci/.github/actions/release/dist@v0
+
+      - id: plan
+        if: ${{ steps.detect.outputs.enabled == 'true' }}
+        name: Pin version and compute build matrix
+        shell: bash
+        run: |
+          cargo install cargo-edit --locked
+          cargo set-version "${GITHUB_REF_NAME}"
+          dist plan --tag="${GITHUB_REF_NAME}" --output-format=json > plan-dist-manifest.json
+          echo "matrix=$(jq -c '.ci.github.artifacts_matrix' plan-dist-manifest.json)" >> "${GITHUB_OUTPUT}"
+
+      - if: ${{ steps.detect.outputs.enabled == 'true' }}
+        name: Upload plan manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: dist-plan-manifest
+          path: plan-dist-manifest.json
+          if-no-files-found: error
+
+  dist-build:
+    needs: [dist-plan, supply-chain, secrets]   # no artifact builds until the gates pass
+    if: ${{ needs.dist-plan.outputs.enabled == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.dist-plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container && matrix.container.image || null }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: coroboros/ci/.github/actions/release/dist@v0
+
+      - name: Pin Cargo.toml to tag
+        shell: bash
+        run: |
+          cargo install cargo-edit --locked
+          cargo set-version "${GITHUB_REF_NAME}"
+
+      - uses: coroboros/ci/.github/actions/rust/native-deps@v0
+
+      # Plan-provided cross/system toolchains; empty for a native target.
+      - name: Install build system dependencies
+        if: ${{ matrix.packages_install }}
+        shell: bash
+        run: ${{ matrix.packages_install }}
+
+      # matrix.dist_args carries --artifacts=local --target=<triple> from `dist plan`.
+      # dist's own curl|sh installer (matrix.install_dist) is deliberately ignored —
+      # release/dist is the house-style, version-pinned install.
+      - name: Build local artifacts
+        shell: bash
+        run: dist build --tag="${GITHUB_REF_NAME}" ${{ matrix.dist_args }}
+
+      - name: Upload local artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: dist-build-${{ join(matrix.targets, '_') }}
+          path: target/distrib/
+          if-no-files-found: error
+
   publish:
     if: ${{ github.ref_type == 'tag' }}
-    needs: [supply-chain, secrets]   # no release ships until cargo-deny and gitleaks pass
+    needs: [supply-chain, secrets, dist-plan]   # no release ships until cargo-deny and gitleaks pass
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main
@@ -108,10 +223,152 @@ jobs:
       - uses: coroboros/ci/.github/actions/release/github-release@v0
         with:
           body: ${{ steps.changelog.outputs.body }}
+          draft: ${{ needs.dist-plan.outputs.enabled }}   # draft for binary repos; dist-host undrafts
 
       - uses: coroboros/ci/.github/actions/release/commit-artifacts@v0
         with:
           files: Cargo.toml Cargo.lock CHANGELOG.md
+
+  dist-host:
+    needs: [dist-plan, dist-build, publish]
+    if: ${{ needs.dist-plan.outputs.enabled == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # upload release assets + undraft the release publish created
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: coroboros/ci/.github/actions/release/dist@v0
+
+      - name: Pin Cargo.toml to tag
+        shell: bash
+        run: |
+          cargo install cargo-edit --locked
+          cargo set-version "${GITHUB_REF_NAME}"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          pattern: dist-build-*
+          path: target/distrib/
+          merge-multiple: true
+
+      # The global build reads the same manifest `dist plan` produced (URL derivation).
+      - name: Download plan manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: dist-plan-manifest
+          path: target/distrib/
+
+      # Final asset URLs are deterministic (repo + tag), so --tag is enough to
+      # embed non-draft download links with no dist-owned release.
+      - name: Build global artifacts
+        shell: bash
+        run: dist build --tag="${GITHUB_REF_NAME}" --artifacts=global --output-format=json > target/distrib/dist-manifest.json
+
+      # Upload archives + installers + checksums, then undraft — so the formula
+      # and npm shim (next job) resolve against a live release, not a draft.
+      - name: Upload release assets and undraft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          assets=()
+          for f in target/distrib/*; do
+            case "${f}" in
+              *.json) ;;
+              *) [ -f "${f}" ] && assets+=("${f}") ;;
+            esac
+          done
+          if [ "${#assets[@]}" -gt 0 ]; then
+            gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
+          fi
+          gh release edit "${GITHUB_REF_NAME}" --draft=false
+
+      - name: Upload global artifacts for publish
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: dist-global
+          path: |
+            target/distrib/*.rb
+            target/distrib/*-npm-package.tar.gz
+          if-no-files-found: ignore
+
+  dist-publish:
+    needs: [dist-plan, dist-host]
+    if: ${{ needs.dist-plan.outputs.enabled == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # npm OIDC provenance
+    env:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
+    steps:
+      - name: Download global artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: dist-global
+          path: dist-global
+
+      - name: Checkout Homebrew tap
+        if: ${{ env.HOMEBREW_TAP_TOKEN != '' && needs.dist-plan.outputs.tap != '' }}
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          repository: ${{ needs.dist-plan.outputs.tap }}
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Publish Homebrew formula
+        if: ${{ env.HOMEBREW_TAP_TOKEN != '' && needs.dist-plan.outputs.tap != '' }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          formulas=(dist-global/*.rb)
+          if [ "${#formulas[@]}" -eq 0 ]; then
+            echo "::notice::no Homebrew formula generated — skipping"
+            exit 0
+          fi
+          git -C homebrew-tap config user.name "github-actions[bot]"
+          git -C homebrew-tap config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p homebrew-tap/Formula
+          for f in "${formulas[@]}"; do
+            cp "${f}" "homebrew-tap/Formula/$(basename "${f}")"
+            git -C homebrew-tap add "Formula/$(basename "${f}")"
+          done
+          git -C homebrew-tap commit -m "release ${GITHUB_REF_NAME}"
+          git -C homebrew-tap push
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      # OIDC + provenance by default; NPM_PACKAGE_REGISTRY_TOKEN only bootstraps
+      # the first publish of a new scoped package. Mirrors javascript-npm-packages.
+      - name: Publish npm shim
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
+        run: |
+          shopt -s nullglob
+          shims=(dist-global/*-npm-package.tar.gz)
+          if [ "${#shims[@]}" -eq 0 ]; then
+            echo "::notice::no npm shim generated — skipping"
+            exit 0
+          fi
+          for pkg in "${shims[@]}"; do
+            if [ -n "${NPM_PACKAGE_REGISTRY_TOKEN}" ]; then
+              npm publish --access public "${pkg}"
+            else
+              npm publish --provenance --access public "${pkg}"
+            fi
+          done
 
   security:
     uses: ./.github/workflows/security.yml
