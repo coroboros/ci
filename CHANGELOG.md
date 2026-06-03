@@ -4,7 +4,7 @@
 
 ### Features
 - `rust-packages` — opt-in binary-distribution layer driven by cargo-dist (`dist` `0.32.0`), gated on `[package.metadata.dist]` in the consumer's `Cargo.toml`. A tagged binary repo gets prebuilt archives for each declared target, `shell` + `powershell` installers, a Homebrew formula committed to the declared `tap`, and a published npm shim — attached to the single GitHub Release the pipeline already creates, alongside the crates.io publish. The shared pipeline stays the sole release authority: `dist` only builds (final asset URLs derive from repo + tag), and the release goes live through draft → undraft so installers and the formula resolve against published download URLs. Library crates without dist metadata are unchanged — every binary job self-skips. Adds `dist-plan`, `dist-build`, `dist-host`, `dist-publish`; the binary builds `needs:` the `cargo-deny` and `gitleaks` gates, so no artifact builds before the release gates pass.
-- `release/dist` — composite installing `dist` version-pinned (`cargo install cargo-dist --version 0.32.0 --locked`), shared by the binary jobs.
+- `release/dist`, `rust/pin-version` — composites: install `dist` version-pinned (`cargo install cargo-dist --version 0.32.0 --locked`), and pin `Cargo.toml` to the tag (`cargo set-version`), shared across `publish` and the binary jobs.
 - `release/github-release` — add a `draft` input so binary repos draft-then-undraft while library repos create non-draft as before.
 
 ### Documentation

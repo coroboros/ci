@@ -1,0 +1,12 @@
+# Rust Pin Version Action Composite
+name: rust-pin-version
+description: Pin Cargo.toml to the current tag via cargo set-version.
+
+runs:
+  using: composite
+  steps:
+    - name: Pin Cargo.toml to tag
+      shell: bash
+      run: |
+        cargo install cargo-edit --locked
+        cargo set-version "${GITHUB_REF_NAME}"

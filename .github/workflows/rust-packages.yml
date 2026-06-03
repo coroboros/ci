@@ -100,13 +100,14 @@ jobs:
       - if: ${{ steps.detect.outputs.enabled == 'true' }}
         uses: coroboros/ci/.github/actions/release/dist@v0
 
+      - if: ${{ steps.detect.outputs.enabled == 'true' }}
+        uses: coroboros/ci/.github/actions/rust/pin-version@v0
+
       - id: plan
         if: ${{ steps.detect.outputs.enabled == 'true' }}
-        name: Pin version and compute build matrix
+        name: Compute build matrix
         shell: bash
         run: |
-          cargo install cargo-edit --locked
-          cargo set-version "${GITHUB_REF_NAME}"
           dist plan --tag="${GITHUB_REF_NAME}" --output-format=json > plan-dist-manifest.json
           echo "matrix=$(jq -c '.ci.github.artifacts_matrix' plan-dist-manifest.json)" >> "${GITHUB_OUTPUT}"
 
@@ -134,11 +135,7 @@ jobs:
 
       - uses: coroboros/ci/.github/actions/release/dist@v0
 
-      - name: Pin Cargo.toml to tag
-        shell: bash
-        run: |
-          cargo install cargo-edit --locked
-          cargo set-version "${GITHUB_REF_NAME}"
+      - uses: coroboros/ci/.github/actions/rust/pin-version@v0
 
       - uses: coroboros/ci/.github/actions/rust/native-deps@v0
 
@@ -193,11 +190,7 @@ jobs:
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/rust/native-deps@v0
 
-      - name: Pin Cargo.toml to tag
-        shell: bash
-        run: |
-          cargo install cargo-edit --locked
-          cargo set-version "${GITHUB_REF_NAME}"
+      - uses: coroboros/ci/.github/actions/rust/pin-version@v0
 
       - id: changelog
         uses: coroboros/ci/.github/actions/release/generate-changelog@v0
@@ -243,11 +236,7 @@ jobs:
 
       - uses: coroboros/ci/.github/actions/release/dist@v0
 
-      - name: Pin Cargo.toml to tag
-        shell: bash
-        run: |
-          cargo install cargo-edit --locked
-          cargo set-version "${GITHUB_REF_NAME}"
+      - uses: coroboros/ci/.github/actions/rust/pin-version@v0
 
       - name: Download build artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4

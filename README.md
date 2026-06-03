@@ -121,7 +121,7 @@ Consumer requirements:
 - `deny.toml` — the cargo-deny supply-chain policy (sources, licenses, bans, advisories). See [Security](#security) for the baseline.
 - `ci/setup.sh` — optional. Installs native build dependencies (a `-sys` crate's toolchain, test fixtures) and exports env via `$GITHUB_ENV`. A no-op when absent.
 - crates.io publishing — configure [OIDC Trusted Publishing](#security), or set `CARGO_REGISTRY_TOKEN` to bootstrap the first publish of a new crate. Tagged builds always publish.
-- binary distribution — optional. Declare `[package.metadata.dist]` in `Cargo.toml` (cargo-dist `0.32.0`) to attach prebuilt archives, shell/powershell installers, a Homebrew formula, and an npm shim to the release. Absent → source-only (crates.io), unchanged. Drop `release-plz`; the shared pipeline owns the release.
+- binary distribution — optional. Declare `[package.metadata.dist]` in `Cargo.toml` (cargo-dist `0.32.0`) to attach prebuilt binaries and installers to the release; drop `release-plz`. Absent → source-only (crates.io), unchanged.
 
 <details>
 <summary><em>preflight</em></summary>
@@ -186,14 +186,14 @@ Consumer requirements:
 
 **Trigger**: `tag push`, only when `Cargo.toml` declares `[package.metadata.dist]` (cargo-dist `0.32.0`). Library crates skip every job below with zero config; the release stays non-draft as above.
 
-The shared pipeline is the sole release authority — `publish` creates the one GitHub Release (a draft for binary repos), and these jobs attach artifacts to it. cargo-dist (`dist`) only builds; it never creates or owns a release.
+The shared pipeline is the sole release authority — `publish` creates the one GitHub Release (a draft for binary repos), and these jobs attach artifacts to it. cargo-dist (`dist`) only builds, never owns the release.
 
 - **`dist-plan`** — detects the metadata, pins the version, runs `dist plan` to compute the per-target build matrix.
 - **`dist-build`** — matrix over the declared `targets`, gated by `supply-chain` and `secrets` (`needs:`); builds each prebuilt archive (`dist build --artifacts=local`).
 - **`dist-host`** — builds the global installers + Homebrew formula + npm shim (`dist build --artifacts=global`; final download URLs derive from repo + tag), uploads every asset to the release, then undrafts it.
 - **`dist-publish`** — commits the formula to the declared `tap` (`HOMEBREW_TAP_TOKEN`) and publishes the npm shim (OIDC + provenance, or `NPM_PACKAGE_REGISTRY_TOKEN` bootstrap). Each self-skips when its installer or secret is absent.
 
-`dist` is version-pinned via `cargo install cargo-dist --version 0.32.0 --locked`. Per-target Cargo features are not expressible in cargo-dist 0.32.0 — a build needing them (e.g. a Metal-accelerated macOS binary) resolves them consumer-side via `cfg(target_os = …)`. macOS Developer-ID signing + notarization are deferred.
+`dist` is version-pinned via `cargo install cargo-dist --version 0.32.0 --locked`. Per-target Cargo features are not expressible in cargo-dist 0.32.0. Set them consumer-side via `cfg`, e.g. a Metal build gated on `cfg(target_os = "macos")`. macOS Developer-ID signing + notarization are deferred.
 
 </details>
 
@@ -218,7 +218,7 @@ Reusable sub-workflow with three parallel scans:
 
 ---
 
-**Notes** — pin via `@v0` (rolling major) or `@x.y.z`. `self-release.yml` moves `v0` to each stable release, so `@v0` always tracks the latest. `@x.y.z` pins the workflow file. The composite actions it calls are hardcoded `@v0`, so `@x.y.z` is not a full freeze — the nested actions still follow `v0`. Jobs run in parallel except each `publish`, which `needs: [supply-chain, secrets]` so the release is re-checked (cargo-deny or osv-scanner, plus gitleaks) before it ships. `security.yml` scans in parallel for reporting — it does not gate `publish` (see [Security](#security)). The only sub-workflow call is `security` → `security.yml`.
+**Notes** — pin via `@v0` (rolling major) or `@x.y.z`. `self-release.yml` moves `v0` to each stable release, so `@v0` always tracks the latest. `@x.y.z` pins the workflow file. The composite actions it calls are hardcoded `@v0`, so `@x.y.z` is not a full freeze — the nested actions still follow `v0`. Jobs run in parallel except each `publish`, which `needs:` the `supply-chain` and `secrets` gates so the release is re-checked (cargo-deny or osv-scanner, plus gitleaks) before it ships. `security.yml` scans in parallel for reporting — it does not gate `publish` (see [Security](#security)). The only sub-workflow call is `security` → `security.yml`.
 
 ---
 
@@ -230,13 +230,14 @@ Reusable sub-workflow with three parallel scans:
 | `javascript/base` | JavaScript | Sets up Node + corepack pnpm, caches the store, writes `.npmrc` from env, then installs, lints, builds (when present), tests. |
 | `rust/base` | Rust | Resolves the toolchain from `rust-toolchain.toml`, caches the `~/.cargo` deps, runs [`rust/native-deps`](#composable-actions), then `cargo fmt --check`, `clippy -D warnings`, `test`. |
 | `rust/native-deps` | Rust | Runs the optional `ci/setup.sh` native build-dependency hook. Shared by `rust/base` and the publish verify build. No-op when absent. |
+| `rust/pin-version` | Rust | Pins `Cargo.toml` to the current tag (`cargo set-version`). Shared by the Rust `publish` and binary jobs. |
 | `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. The shared definition behind `security.yml`, the package `secrets` gate, and self-CI. |
 | `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml`, the npm `supply-chain` gate, and self-CI. |
 | `security/cargo-deny` | Rust | Runs cargo-deny (sources, licenses, bans, advisories) against `deny.toml`. The Rust `supply-chain` gate. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
 | `release/commit-artifacts` | transverse | Stages the given files and commits them back to `main` as `chore: release ${tag} [skip ci]`. No-op when nothing changed. |
-| `release/dist` | Rust | Installs cargo-dist (the `dist` binary), version-pinned. Powers the opt-in binary-distribution jobs in `rust-packages.yml` (`dist plan` / `build`). |
+| `release/dist` | Rust | Installs cargo-dist (the `dist` binary), version-pinned. Used by the `rust-packages` binary jobs (`dist plan` / `build`). |
 
 ---
 
@@ -307,7 +308,7 @@ Zero `inputs:` — configuration flows through the caller's `secrets:` block. Ev
 
 <br>
 
-All optional. A consumer that wires none still gets crates.io plus prebuilt archives and installers on the Release; Homebrew and npm activate only when their secret (or OIDC) is configured.
+All optional. A consumer that wires none still gets crates.io plus prebuilt archives and installers on the release; Homebrew and npm activate only when their secret (or OIDC) is configured.
 
 | name | required | description |
 | :--- | :---: | :--- |
@@ -515,7 +516,7 @@ Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. 
 
 Third-party actions across workflows + composites are pinned to a commit SHA with an inline `# vX` comment. Floating refs (`@master`, `@main`, `@vX`) are banned.
 
-Self-CI binaries pinned by version. `actionlint` and `gitleaks` install from release tarballs with SHA-256 verification; `yamllint` via `pip install` with version pin; `cargo-dist` via `cargo install --locked --version` (registry-checksum verified). No `curl | bash`.
+Self-CI binaries pinned by version. `actionlint` and `gitleaks` install from release tarballs with SHA-256 verification; `yamllint` via `pip install` with version pin. No `curl | bash`.
 
 `.github/dependabot.yml` opens weekly grouped auto-PRs to bump pinned SHAs across `.github/workflows/*` and `.github/actions/**/action.yml`. Consumers should add their own ecosystem entries (e.g., `npm`).
 
