@@ -1,25 +1,10 @@
 # Changelog
 
-## v0.3.0 - 03/06/2026
-
-### Features
-- `rust-packages` — opt-in binary-distribution layer driven by cargo-dist (`dist` `0.32.0`), gated on `[package.metadata.dist]` in the consumer's `Cargo.toml`. A tagged binary repo gets prebuilt archives for each declared target, `shell` + `powershell` installers, a Homebrew formula committed to the declared `tap`, and a published npm shim — attached to the single GitHub Release the pipeline already creates, alongside the crates.io publish. The shared pipeline stays the sole release authority: `dist` only builds (final asset URLs derive from repo + tag), and the release goes live through draft → undraft so installers and the formula resolve against published download URLs. Library crates without dist metadata are unchanged — every binary job self-skips. Adds `dist-plan`, `dist-build`, `dist-host`, `dist-publish`; the binary builds `needs:` the `cargo-deny` and `gitleaks` gates, so no artifact builds before the release gates pass.
-- `release/dist`, `rust/pin-version` — composites: install `dist` version-pinned (`cargo install cargo-dist --version 0.32.0 --locked`), and pin `Cargo.toml` to the tag (`cargo set-version`), shared across `publish` and the binary jobs.
-- `release/github-release` — add a `draft` input so binary repos draft-then-undraft while library repos create non-draft as before.
-
-### Fixes
-- `security/cargo-deny` — impose the canonical `security/deny.toml` from `coroboros/ci` via `--config` instead of reading the consumer's file, and reject a project-local `deny.exceptions.toml`. The supply-chain gate can no longer be weakened or omitted per repo — parity with the imposed `gitleaks` ruleset. The ruleset hard-fails on vulnerability, yanked, unmaintained, and unsound advisories, restricts sources to crates.io, and denies wildcard version requirements.
-
-### Documentation
-- `README` — document the opt-in binary-distribution layer (the four jobs, the consumer contract, the optional `HOMEBREW_TAP_TOKEN` and `NPM_PACKAGE_REGISTRY_TOKEN` secrets), add `release/dist` to the composables table, and note the cargo-dist 0.32.0 per-target-features limitation plus deferred macOS signing.
-
-### Configuration
-- `package.json` — bump to `0.3.0`.
-
 ## v0.2.0 - 02/06/2026
 
 ### Features
 - `rust-packages` — bundled Cargo pipeline: `preflight` (`cargo fmt --check` / `clippy -D warnings` / `test` on a Linux, macOS, Windows matrix), `supply-chain` (`cargo-deny`), tag-driven `publish` to crates.io, and the shared `security` scan. `supply-chain` runs on every push and gates `publish` (`needs:`), so cargo-deny re-checks the release against the latest advisory DB before it ships rather than scanning in parallel. Publish authenticates with crates.io OIDC Trusted Publishing by default (`rust-lang/crates-io-auth-action`); `CARGO_REGISTRY_TOKEN` is the first-publish bootstrap for a new crate. The verify build runs on publish — no `--no-verify` — so a crate that only builds in-workspace fails before an immutable release.
+- `rust-packages` — opt-in binary-distribution layer via cargo-dist (`dist` `0.32.0`), gated on `[package.metadata.dist]`. A tagged binary crate gets prebuilt per-target archives, `shell` + `powershell` installers, a Homebrew formula in the declared `tap`, and an npm shim — attached to the single GitHub Release, alongside the crates.io publish. The pipeline stays the sole release authority: `dist` only builds (final URLs derive from repo + tag), and the release goes live through draft → undraft. Library crates self-skip. Adds `dist-plan`, `dist-build`, `dist-host`, `dist-publish` (gated by `cargo-deny` + `gitleaks`) and a `draft` input on `release/github-release`; optional `HOMEBREW_TAP_TOKEN` and `NPM_PACKAGE_REGISTRY_TOKEN` secrets activate the tap and npm publishes.
 - `rust/base`, `rust/native-deps` — composites. `rust/base` resolves the toolchain from `rust-toolchain.toml`, caches `~/.cargo`, runs the optional `ci/setup.sh` native-dependency hook, then lints and tests; `rust/native-deps` is that hook, shared with the publish verify build.
 - `javascript/base` — wrap `pnpm install` in Socket Firewall (`sfw`), blocking confirmed-malicious packages before download. Fail-closed. The GitHub-runner equivalent of the image-baked firewall on GitLab.
 - `self-release` — move the rolling `v0` major tag to each stable `coroboros/ci` release, so `@v0` consumers track the latest release without a manual tag push.
@@ -30,11 +15,11 @@
 - `release` — drop the "move rolling major tag" step from the npm and Rust publish jobs. Reusable workflows run in the caller's context, so it force-pushed a meaningless `vN` ref into every consumer repo; the `v0` ref now moves on `coroboros/ci`'s own release (see `self-release`).
 
 ### Refactor
-- `security` — extract the gitleaks, osv-scanner, and cargo-deny scanners into `security/*` composites (single source). `security.yml` references them and the package `supply-chain` gates reuse them, so osv-scanner is defined once. The osv composite scans only when a supported manifest is present (`pnpm-lock.yaml`, `Cargo.lock`, `go.mod`, and the rest), so a dependency-less repo wiring in `security.yml` skips the scan instead of failing on osv's no-manifest error. `self-security.yml` runs the composites via local refs to self-test them pre-release.
+- `security` — extract the gitleaks, osv-scanner, and cargo-deny scanners into `security/*` composites (single source). `security.yml` references them and the package `supply-chain` gates reuse them, so osv-scanner is defined once. The osv composite scans only when a supported manifest is present (`pnpm-lock.yaml`, `Cargo.lock`, `go.mod`, and the rest), so a dependency-less repo wiring in `security.yml` skips the scan instead of failing on osv's no-manifest error. `self-security.yml` runs the composites via local refs to self-test them pre-release. The `cargo-deny` composite imposes a canonical `security/deny.toml` via `--config` — a consumer `deny.toml` is ignored and a `deny.exceptions.toml` is rejected.
 - `release/commit-artifacts` — extract the commit-back step shared by the npm and Rust publish jobs into a composite (`files` input, `[skip ci]`), mirroring GitLab's `commit-release-artifacts`.
 
 ### Documentation
-- `README`, `SECURITY.md` — document the Rust supply-chain model (`cargo-deny` baseline, residual `build.rs` and no-cooldown gaps), the Socket Firewall and release-age cooldown, and the publish auth paths; collapse cross-references to remove duplication; add the `sfw` proxy-inspection caveat for parity with GitLab.
+- `README`, `SECURITY.md` — document the Rust supply-chain model (`cargo-deny` baseline, residual `build.rs` and no-cooldown gaps), the Socket Firewall and release-age cooldown, and the publish auth paths; collapse cross-references to remove duplication; add the `sfw` proxy-inspection caveat for parity with GitLab; document the opt-in binary-distribution layer (jobs, consumer contract, optional tap/npm secrets) and the imposed `cargo-deny` ruleset.
 
 ### Configuration
 - `package.json` — bump to `0.2.0` (was `0.1.13`, lagging the `0.1.14` tag).
