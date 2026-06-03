@@ -59,8 +59,7 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      # Wrapped by Socket Firewall — the registry fetch is inspected and confirmed-
-      # malicious packages are blocked before download. Fail-closed: no sfw, no install.
+      # Fail-closed: no sfw, no install.
       run: sfw pnpm install --frozen-lockfile --ignore-scripts
 
     - name: Lint
