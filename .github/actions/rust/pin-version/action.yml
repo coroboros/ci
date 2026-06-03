@@ -7,6 +7,8 @@ runs:
   steps:
     - name: Pin Cargo.toml to tag
       shell: bash
+      env:
+        CARGO_EDIT_VERSION: "0.13.11"
       run: |
-        cargo install cargo-edit --locked
+        cargo install cargo-edit --version "${CARGO_EDIT_VERSION}" --locked
         cargo set-version "${GITHUB_REF_NAME}"
