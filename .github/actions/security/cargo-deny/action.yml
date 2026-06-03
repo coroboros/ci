@@ -1,10 +1,33 @@
 # Security cargo-deny Action Composite
 name: security-cargo-deny
-description: Run cargo-deny (sources, licenses, bans, advisories) against the repo's deny.toml.
+description: Run cargo-deny against the canonical Coroboros ruleset (imposed, no consumer override).
 
+# The caller checks out the repo to scan before using this composite.
 runs:
   using: composite
   steps:
+    - name: Checkout canonical deny config
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      with:
+        repository: coroboros/ci
+        path: .coroboros-ci
+        sparse-checkout: |
+          security/deny.toml
+        sparse-checkout-cone-mode: false
+
+    - name: Reject consumer deny overrides
+      shell: bash
+      # `--config` ignores the consumer's deny.toml, but cargo-deny still merges a
+      # project-local deny.exceptions.toml into the licenses policy — block it.
+      run: |
+        if find . -path ./.coroboros-ci -prune -o -type f \
+             \( -name 'deny.exceptions.toml' -o -name '.deny.exceptions.toml' \) -print \
+           | grep -q .; then
+          echo "::error::deny.exceptions.toml is not permitted — the cargo-deny policy is imposed by coroboros/ci"
+          exit 1
+        fi
+
     - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe  # v2.0.20
       with:
         command: check
+        command-arguments: "--config .coroboros-ci/security/deny.toml --deny unmaintained --deny unsound"

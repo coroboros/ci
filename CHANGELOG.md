@@ -7,6 +7,9 @@
 - `release/dist`, `rust/pin-version` — composites: install `dist` version-pinned (`cargo install cargo-dist --version 0.32.0 --locked`), and pin `Cargo.toml` to the tag (`cargo set-version`), shared across `publish` and the binary jobs.
 - `release/github-release` — add a `draft` input so binary repos draft-then-undraft while library repos create non-draft as before.
 
+### Fixes
+- `security/cargo-deny` — impose the canonical `security/deny.toml` from `coroboros/ci` via `--config` instead of reading the consumer's file, and reject a project-local `deny.exceptions.toml`. The supply-chain gate can no longer be weakened or omitted per repo — parity with the imposed `gitleaks` ruleset. The ruleset hard-fails on vulnerability, yanked, unmaintained, and unsound advisories, restricts sources to crates.io, and denies wildcard version requirements.
+
 ### Documentation
 - `README` — document the opt-in binary-distribution layer (the four jobs, the consumer contract, the optional `HOMEBREW_TAP_TOKEN` and `NPM_PACKAGE_REGISTRY_TOKEN` secrets), add `release/dist` to the composables table, and note the cargo-dist 0.32.0 per-target-features limitation plus deferred macOS signing.
 

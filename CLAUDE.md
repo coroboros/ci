@@ -16,6 +16,7 @@ Reusable GitHub Actions workflows + composite actions for the Coroboros stack.
 - `.github/actions/{check-docs,javascript/base,rust/{base,native-deps,pin-version},security/{gitleaks,osv-scanner,cargo-deny},release/{generate-changelog,github-release,commit-artifacts,dist}}/action.yml` — composites.
 - `.github/dependabot.yml` — auto-PRs for pinned actions.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
+- `security/deny.toml` — canonical cargo-deny ruleset, imposed via `--config` (consumer `deny.toml` ignored; `deny.exceptions.toml` rejected).
 - `README.md` — public documentation (single source for pipelines, composables, structure, flow, env, security, examples).
 
 ## Rules

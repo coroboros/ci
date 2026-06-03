@@ -118,7 +118,7 @@ Bundled Cargo CI. Tag-driven release, same as the npm pipeline.
 Consumer requirements:
 - `rust-toolchain.toml` — pins the channel and lists the `clippy` + `rustfmt` components (`rustup` installs them on first `cargo` use; omit them and `fmt`/`clippy` fail on a pinned channel).
 - `Cargo.toml` and a committed `Cargo.lock` — `clippy` and `test` run `--locked`.
-- `deny.toml` — the cargo-deny supply-chain policy (sources, licenses, bans, advisories). See [Security](#security) for the baseline.
+- cargo-deny policy — imposed by `coroboros/ci`; no consumer `deny.toml` required, and a local one is ignored. See [Security](#security).
 - `ci/setup.sh` — optional. Installs native build dependencies (a `-sys` crate's toolchain, test fixtures) and exports env via `$GITHUB_ENV`. A no-op when absent.
 - crates.io publishing — configure [OIDC Trusted Publishing](#security), or set `CARGO_REGISTRY_TOKEN` to bootstrap the first publish of a new crate. Tagged builds always publish.
 - binary distribution — optional. Declare `[package.metadata.dist]` in `Cargo.toml` (cargo-dist `0.32.0`) to attach prebuilt binaries and installers to the release; drop `release-plz`. Absent → source-only (crates.io), unchanged.
@@ -233,7 +233,7 @@ Reusable sub-workflow with three parallel scans:
 | `rust/pin-version` | Rust | Pins `Cargo.toml` to the current tag (`cargo set-version`). Shared by the Rust `publish` and binary jobs. |
 | `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. The shared definition behind `security.yml`, the package `secrets` gate, and self-CI. |
 | `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml`, the npm `supply-chain` gate, and self-CI. |
-| `security/cargo-deny` | Rust | Runs cargo-deny (sources, licenses, bans, advisories) against `deny.toml`. The Rust `supply-chain` gate. |
+| `security/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The Rust `supply-chain` gate. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
 | `release/commit-artifacts` | transverse | Stages the given files and commits them back to `main` as `chore: release ${tag} [skip ci]`. No-op when nothing changed. |
@@ -410,29 +410,7 @@ The GitLab pipeline hardens npm at the image layer — cooldown, Socket Firewall
 | License drift | `cargo-deny` licenses — allow-list |
 | Banned or wildcard dependency | `cargo-deny` bans |
 
-`cargo-deny` runs on every push via a SHA-pinned action and gates `publish` (`needs:`), so a tagged release is re-checked against the latest advisory DB before it ships — `security.yml` scans in parallel for reporting and does not block the release. It reads the repo's `deny.toml`. The baseline:
-
-```toml
-[advisories]
-version = 2
-yanked = "deny"
-
-[licenses]
-version = 2
-allow = [
-  "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause",
-  "BSD-3-Clause", "0BSD", "ISC", "Zlib", "MPL-2.0", "Unicode-3.0",
-  "Unlicense", "CDLA-Permissive-2.0", "BSL-1.0",
-]
-
-[bans]
-multiple-versions = "warn"
-wildcards = "deny"
-
-[sources]
-unknown-registry = "deny"
-unknown-git = "deny"
-```
+`cargo-deny` runs on every push via a SHA-pinned action and gates `publish` (`needs:`), so a tagged release is re-checked against the latest advisory DB before it ships — `security.yml` scans in parallel for reporting and does not block the release. It applies the canonical [`security/deny.toml`](security/deny.toml) via `--config`, sparse-checked from `coroboros/ci` — **imposed**, the same model as the [`gitleaks`](#composable-actions) ruleset. A consumer `deny.toml` is ignored; a `deny.exceptions.toml` fails the job. The ruleset hard-fails on vulnerability, yanked, unmaintained, and unsound advisories; restricts sources to crates.io (git and alternative registries denied); denies wildcard version requirements; and enforces a permissive license allow-list. Exceptions are changed centrally in `coroboros/ci`, never per repo.
 
 **Publish auth.** crates.io publish uses OIDC Trusted Publishing by default — `rust-lang/crates-io-auth-action` mints a short-lived token per run, no long-lived secret in the repo. `CARGO_REGISTRY_TOKEN` is needed only to bootstrap the first publish of a new crate (Trusted Publishing binds to an existing crate); configure Trusted Publishing on crates.io afterwards and drop the token. The verify build runs on publish (no `--no-verify`). It compiles the packaged tarball standalone, catching a crate that only builds in-workspace before the immutable release lands.
 
