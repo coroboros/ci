@@ -35,7 +35,7 @@
 
 ### Configuration
 - `package.json` — bump to `0.2.0` (was `0.1.13`, lagging the `0.1.14` tag).
-- `renovate.json` — Renovate custom managers auto-bump the version-pinned tooling (gitleaks, actionlint, yamllint, cargo-dist, cargo-edit) via review-gated PRs, scoped so Dependabot keeps the action SHAs. The paired tarball SHA-256 values stay a manual step on the bump PR — Renovate cannot recompute them on the hosted app — flagged in the PR body.
+- `renovate.json` + `renovate.yml` — self-hosted Renovate (scheduled workflow, `RENOVATE_TOKEN` PAT) auto-bumps the version-pinned tooling (gitleaks, actionlint, yamllint, cargo-dist, cargo-edit) via review-gated PRs, scoped so Dependabot keeps the action SHAs. A `postUpgradeTask` (`.github/renovate/sync-tool-sha.sh`) re-syncs each paired tarball SHA-256 to the bumped version in the same PR, so version and checksum never drift.
 
 ## v0.1.14 - 01/06/2026
 

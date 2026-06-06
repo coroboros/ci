@@ -14,7 +14,7 @@ Reusable GitHub Actions workflows + composite actions for the Coroboros stack.
 - `.github/workflows/security.yml` — `gitleaks` + `dependency-review` + `osv-scanner` (gitleaks/osv wrap `security/*` composites; the package `supply-chain` gates reuse them).
 - `.github/workflows/{self,self-security,self-release,self-actions}.yml` — self-CI: lint, gitleaks + osv (composites via local `./`), the `v0` rolling-tag move, and `self-actions` smoke-testing the composites against the real checkout on every PR.
 - `.github/actions/{check-docs,javascript/base,rust/{base,native-deps,install-dist,pin-version},security/{gitleaks,osv-scanner,cargo-deny},release/{verify-tag,generate-changelog,github-release,commit-artifacts}}/action.yml` — composites.
-- `.github/dependabot.yml` — auto-PRs for pinned action SHAs. `renovate.json` — Renovate custom managers auto-bump the version-pinned tooling (gitleaks, actionlint, yamllint, cargo-dist, cargo-edit).
+- `.github/dependabot.yml` — auto-PRs for pinned action SHAs. `renovate.json` + `.github/workflows/renovate.yml` — self-hosted Renovate (needs the `RENOVATE_TOKEN` PAT secret, scope `repo` + `workflow`) auto-bumps the version-pinned tooling; `.github/renovate/sync-tool-sha.sh` re-syncs each paired tarball SHA-256 in the same PR.
 - `security/.gitleaks.toml` — canonical gitleaks ruleset.
 - `security/deny.toml` — canonical cargo-deny ruleset, imposed via `--config` (consumer `deny.toml` ignored; `deny.exceptions.toml` rejected).
 - `README.md` — public documentation (single source for pipelines, composables, structure, flow, env, security, examples).

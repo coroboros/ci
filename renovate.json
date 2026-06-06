@@ -2,7 +2,6 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended",
-    "schedule:earlyMondays",
     ":semanticCommits",
     ":semanticCommitTypeAll(chore)",
     ":dependencyDashboard",
@@ -60,11 +59,17 @@
       "automerge": false
     },
     {
-      "description": "These tools carry a paired SHA-256 (and cargo-dist five) that Renovate cannot recompute; the install step's sha256sum -c stays red until a maintainer updates the *_SHA256 line on the PR branch.",
+      "description": "These tools carry a paired tarball SHA-256; a postUpgradeTask re-syncs every *_SHA256 to the bumped version so version + checksum land in the same PR. Self-hosted only — the command is allowlisted via RENOVATE_ALLOWED_COMMANDS in renovate.yml.",
       "matchDepNames": ["rhysd/actionlint", "gitleaks/gitleaks", "axodotdev/cargo-dist"],
-      "prBodyNotes": [
-        ":warning: This bump also needs the paired `*_SHA256` value(s) updated by hand. Download the tarball(s) for the new version, run `sha256sum`, and push the new hash onto this PR branch — the install step's `sha256sum -c -` stays red until then."
-      ]
+      "postUpgradeTasks": {
+        "commands": ["bash .github/renovate/sync-tool-sha.sh"],
+        "fileFilters": [
+          ".github/actions/security/gitleaks/action.yml",
+          ".github/workflows/self.yml",
+          ".github/actions/rust/install-dist/action.yml"
+        ],
+        "executionMode": "branch"
+      }
     }
   ]
 }
