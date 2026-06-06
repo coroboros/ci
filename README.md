@@ -124,7 +124,7 @@ Consumer requirements:
 - `ci/test.env` — optional. `KEY=value` lines loaded into the job environment before `cargo test`, so model/fixture-gated tests fail loud instead of skipping. No-op when absent.
 - `ci/test-setup.sh` — optional. Runs before `cargo test` to stage test fixtures (prefetch a model, install a runtime tool). No-op when absent.
 - crates.io publishing — configure [OIDC Trusted Publishing](#security), or set `CARGO_REGISTRY_TOKEN` to bootstrap the first publish of a new crate. Tagged builds always publish.
-- binary distribution — optional. Declare `[package.metadata.dist]` in `Cargo.toml` (cargo-dist `0.32.0`) to attach prebuilt binaries and installers to the release; drop `release-plz`. Absent → source-only (crates.io), unchanged.
+- binary distribution — optional. Declare `[package.metadata.dist]` in `Cargo.toml` (cargo-dist `0.32.0`) to attach prebuilt binaries and installers to the release; drop `release-plz`. cargo-dist `0.32` reads its workspace-global keys (`cargo-dist-version`, `ci`, `publish-jobs`, `allow-dirty`) from `[workspace.metadata.dist]` only — a single-crate repo adds an empty `[workspace]` for them — and must set `allow-dirty = ["ci"]` so `dist plan` doesn't require its own generated workflow (this pipeline owns it). Absent → source-only (crates.io), unchanged.
 
 <details>
 <summary><em>preflight</em></summary>
