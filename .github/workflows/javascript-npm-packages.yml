@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: coroboros/ci/.github/actions/security/osv-scanner@v0
 
-  secrets:
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -50,7 +50,7 @@ jobs:
 
   publish:
     if: ${{ github.ref_type == 'tag' }}
-    needs: [supply-chain, secrets]   # no release ships until osv-scanner and gitleaks pass
+    needs: [supply-chain, secret-scan]   # no release ships until osv-scanner and gitleaks pass
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main

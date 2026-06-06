@@ -70,7 +70,7 @@ Consumer requirements:
 </details>
 
 <details>
-<summary><em>secrets</em></summary>
+<summary><em>secret-scan</em></summary>
 
 <br>
 
@@ -85,7 +85,7 @@ Consumer requirements:
 
 <br>
 
-**Trigger**: `tag push`. Gated by `supply-chain` and `secrets` (`needs:`) — osv-scanner and gitleaks must pass first.
+**Trigger**: `tag push`. Gated by `supply-chain` and `secret-scan` (`needs:`) — osv-scanner and gitleaks must pass first.
 
 **Sequence**:
 1. Checkout `main` with full history
@@ -116,7 +116,7 @@ Calls `security.yml` — see [Security](#security).
 Bundled Cargo CI. Tag-driven release, same as the npm pipeline.
 
 Consumer requirements:
-- `rust-toolchain.toml` — pins the channel. `rust/base` installs that channel explicitly with the `rustfmt` + `clippy` components (no reliance on lazy auto-resolution on first `cargo` use).
+- `rust-toolchain.toml` — pins the channel. `rust/base` installs that channel explicitly with the `rustfmt` + `clippy` components (no reliance on lazy auto-resolution on first `cargo` use). The pipeline assumes `rustup` is on `PATH` (every GitHub-hosted runner ships it); a custom container image pinned for a `dist-build` target must provide it.
 - `Cargo.toml` and a committed `Cargo.lock` — `clippy` and `test` run `--locked`.
 - compile-time assets — any `include_str!` / `include_bytes!` / `build.rs` input must sit under the package root and stay unignored (no `exclude`/`.gitignore` rule drops it). The `package` job verify-builds the packaged crate so a dropped asset fails the PR, not the tagged publish.
 - cargo-deny policy — imposed by `coroboros/ci`; no consumer `deny.toml` required, and a local one is ignored. See [Security](#security).
@@ -242,7 +242,7 @@ Reusable sub-workflow with three parallel scans:
 | :--- | :--- | :--- |
 | `check-docs` | transverse | Context dump + documentation check. |
 | `javascript/base` | JavaScript | Sets up Node + corepack pnpm, caches the store, writes `.npmrc` from env, then installs, lints, builds (when present), tests. |
-| `rust/base` | Rust | Installs the `rust-toolchain.toml` channel (`rustfmt` + `clippy`), caches `~/.cargo` + `target/` via `rust-cache`, runs [`rust/native-deps`](#composable-actions) then [`rust/test-deps`](#composable-actions), then `cargo fmt --check`, `clippy -D warnings`, `test`. |
+| `rust/base` | Rust | Installs the `rust-toolchain.toml` channel (`rustfmt` + `clippy`), caches `~/.cargo` + `target/` via `rust-cache`, runs [`rust/native-deps`](#composable-actions), then `cargo fmt --check`, `clippy -D warnings`, then [`rust/test-deps`](#composable-actions) and `test`. |
 | `rust/native-deps` | Rust | Runs the optional `ci/setup.sh` native build-dependency hook (sees `CARGO_DIST_TARGET` on a `dist-build` cross leg). Shared by `rust/base` and the `dist-build` matrix. No-op when absent. |
 | `rust/test-deps` | Rust | Loads the optional `ci/test.env` into the job env and runs the optional `ci/test-setup.sh` fixture hook before `cargo test`. Used by `rust/base`. No-op when absent. |
 | `rust/install-dist` | Rust | Installs cargo-dist's `dist` binary, prebuilt and SHA-256 verified (Linux/macOS/Windows). Shared by the `dist-plan`, `dist-build`, `dist-host` jobs. |
