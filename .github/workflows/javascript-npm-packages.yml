@@ -18,6 +18,12 @@ on:
 permissions:
   contents: read
 
+# Tags serialize per repo so one release's commit-back can't race another's; branches key
+# per ref and cancel superseded runs, never an in-flight release.
+concurrency:
+  group: release-${{ github.ref_type == 'tag' && github.repository || github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
 env:
   NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
   NPM_EXTRA_CONFIG: ${{ secrets.NPM_EXTRA_CONFIG }}
