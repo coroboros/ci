@@ -14,10 +14,6 @@ on:
 permissions:
   contents: read
 
-env:
-  CARGO_DIST_VERSION: "0.32.0"
-  CARGO_EDIT_VERSION: "0.13.11"
-
 jobs:
   preflight:
     if: ${{ github.ref_type == 'branch' }}
@@ -45,6 +41,16 @@ jobs:
           fetch-depth: 0
       - uses: coroboros/ci/.github/actions/security/gitleaks@v0
 
+  package:
+    if: ${{ github.ref_type == 'branch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: coroboros/ci/.github/actions/rust/native-deps@v0
+      - name: Verify the published crate builds
+        shell: bash
+        run: cargo package --locked
+
   dist-plan:
     if: ${{ github.ref_type == 'tag' }}
     runs-on: ubuntu-latest
@@ -55,17 +61,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Verify tag points to main HEAD
-        shell: bash
-        run: |
-          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
-            echo "::error::main has moved since the tag was pushed — tag ${GITHUB_SHA}, main HEAD $(git rev-parse HEAD). Resolve manually."
-            exit 1
-          fi
-          echo "::notice::main HEAD matches tag SHA (${GITHUB_SHA})"
+          ref: ${{ github.sha }}
 
       - id: detect
         name: Detect cargo-dist metadata
@@ -87,12 +83,10 @@ jobs:
           fi
 
       - if: ${{ steps.detect.outputs.enabled == 'true' }}
-        name: Install cargo-dist and pin version
-        shell: bash
-        run: |
-          cargo install cargo-dist --version "${CARGO_DIST_VERSION}" --locked
-          cargo install cargo-edit --version "${CARGO_EDIT_VERSION}" --locked
-          cargo set-version "${GITHUB_REF_NAME}"
+        uses: coroboros/ci/.github/actions/rust/install-dist@v0
+
+      - if: ${{ steps.detect.outputs.enabled == 'true' }}
+        uses: coroboros/ci/.github/actions/rust/pin-version@v0
 
       - id: plan
         if: ${{ steps.detect.outputs.enabled == 'true' }}
@@ -121,15 +115,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
-          ref: main
-          fetch-depth: 0
+          ref: ${{ github.sha }}
 
-      - name: Install cargo-dist and pin version
-        shell: bash
-        run: |
-          cargo install cargo-dist --version "${CARGO_DIST_VERSION}" --locked
-          cargo install cargo-edit --version "${CARGO_EDIT_VERSION}" --locked
-          cargo set-version "${GITHUB_REF_NAME}"
+      - uses: coroboros/ci/.github/actions/rust/install-dist@v0
+
+      - uses: coroboros/ci/.github/actions/rust/pin-version@v0
 
       - uses: coroboros/ci/.github/actions/rust/native-deps@v0
 
@@ -166,23 +156,12 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Verify tag points to main HEAD
-        shell: bash
-        run: |
-          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
-            echo "::error::main has moved since the tag was pushed — tag ${GITHUB_SHA}, main HEAD $(git rev-parse HEAD). Resolve manually."
-            exit 1
-          fi
-          echo "::notice::main HEAD matches tag SHA (${GITHUB_SHA})"
+      - uses: coroboros/ci/.github/actions/release/verify-tag@v0
 
       - uses: coroboros/ci/.github/actions/check-docs@v0
-      - uses: coroboros/ci/.github/actions/rust/native-deps@v0
+      - uses: coroboros/ci/.github/actions/rust/base@v0
 
-      - name: Pin Cargo.toml to tag
-        shell: bash
-        run: |
-          cargo install cargo-edit --version "${CARGO_EDIT_VERSION}" --locked
-          cargo set-version "${GITHUB_REF_NAME}"
+      - uses: coroboros/ci/.github/actions/rust/pin-version@v0
 
       - id: changelog
         uses: coroboros/ci/.github/actions/release/generate-changelog@v0
@@ -199,7 +178,14 @@ jobs:
           # the long-lived CARGO_REGISTRY_TOKEN secret (already in job env).
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || env.CARGO_REGISTRY_TOKEN }}
         run: |
-          # --allow-dirty covers the in-place version pin (cargo set-version).
+          # --allow-dirty covers the version pin (cargo set-version) + changelog regen; assert
+          # nothing else is dirty so no stray file ships to the immutable crates.io release.
+          unexpected="$(git status --porcelain | grep -vE '^.. (Cargo\.toml|Cargo\.lock|CHANGELOG\.md)$' || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "::error::unexpected uncommitted changes before publish — only Cargo.toml/Cargo.lock/CHANGELOG.md may be dirty:"
+            printf '%s\n' "${unexpected}"
+            exit 1
+          fi
           cargo publish --allow-dirty
 
       - uses: coroboros/ci/.github/actions/release/github-release@v0
@@ -220,15 +206,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
-          ref: main
-          fetch-depth: 0
+          ref: ${{ github.sha }}
 
-      - name: Install cargo-dist and pin version
-        shell: bash
-        run: |
-          cargo install cargo-dist --version "${CARGO_DIST_VERSION}" --locked
-          cargo install cargo-edit --version "${CARGO_EDIT_VERSION}" --locked
-          cargo set-version "${GITHUB_REF_NAME}"
+      - uses: coroboros/ci/.github/actions/rust/install-dist@v0
+
+      - uses: coroboros/ci/.github/actions/rust/pin-version@v0
 
       - name: Download build artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4

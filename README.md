@@ -89,7 +89,7 @@ Consumer requirements:
 
 **Sequence**:
 1. Checkout `main` with full history
-2. Verify `main` HEAD matches the tag SHA
+2. Verify `main` HEAD matches the tag SHA via [`release/verify-tag`](#composable-actions)
 3. Run [`check-docs`](#composable-actions)
 4. Run [`javascript/base`](#composable-actions)
 5. Pin `package.json` version to the tag
@@ -118,6 +118,7 @@ Bundled Cargo CI. Tag-driven release, same as the npm pipeline.
 Consumer requirements:
 - `rust-toolchain.toml` — pins the channel and lists the `clippy` + `rustfmt` components (`rustup` installs them on first `cargo` use; omit them and `fmt`/`clippy` fail on a pinned channel).
 - `Cargo.toml` and a committed `Cargo.lock` — `clippy` and `test` run `--locked`.
+- compile-time assets — any `include_str!` / `include_bytes!` / `build.rs` input must sit under the package root and stay unignored (no `exclude`/`.gitignore` rule drops it). The `package` job verify-builds the packaged crate so a dropped asset fails the PR, not the tagged publish.
 - cargo-deny policy — imposed by `coroboros/ci`; no consumer `deny.toml` required, and a local one is ignored. See [Security](#security).
 - `ci/setup.sh` — optional. Installs native build dependencies (a `-sys` crate's toolchain, test fixtures) and exports env via `$GITHUB_ENV`. A no-op when absent.
 - crates.io publishing — configure [OIDC Trusted Publishing](#security), or set `CARGO_REGISTRY_TOKEN` to bootstrap the first publish of a new crate. Tagged builds always publish.
@@ -160,6 +161,17 @@ Consumer requirements:
 </details>
 
 <details>
+<summary><em>package</em></summary>
+
+<br>
+
+**Trigger**: `branch push`.
+
+`cargo package --locked` builds the crate from its packaged tarball — the same bytes `cargo install` would compile downstream — after [`rust/native-deps`](#composable-actions) supplies any `-sys` toolchain. A compile-time asset (`include_str!` / `include_bytes!` / `build.rs` input) silently dropped from the package fails the PR here. `publish`'s own `cargo publish` verify build is the tag-time twin; `preflight` builds from the work tree and would not catch it.
+
+</details>
+
+<details>
 <summary><em>publish</em></summary>
 
 <br>
@@ -168,10 +180,10 @@ Consumer requirements:
 
 **Sequence**:
 1. Checkout `main` with full history
-2. Verify `main` HEAD matches the tag SHA
+2. Verify `main` HEAD matches the tag SHA via [`release/verify-tag`](#composable-actions)
 3. Run [`check-docs`](#composable-actions)
-4. Run [`rust/native-deps`](#composable-actions) — native deps for the publish verify build
-5. Pin `Cargo.toml` to the tag (`cargo set-version`)
+4. Run [`rust/base`](#composable-actions)
+5. Pin `Cargo.toml` to the tag via [`rust/pin-version`](#composable-actions)
 6. Generate `CHANGELOG.md` section via [`release/generate-changelog`](#composable-actions)
 7. `cargo publish` to crates.io — OIDC by default, token bootstrap for a new crate (see [Security](#security))
 8. Create GitHub Release via [`release/github-release`](#composable-actions) — a draft when the consumer ships binaries (undrafted once assets upload), else final
@@ -193,7 +205,7 @@ The shared pipeline is the sole release authority — `publish` creates the one 
 - **`dist-host`** — builds the global installers + Homebrew formula + npm shim (`dist build --artifacts=global`; final download URLs derive from repo + tag), uploads every asset to the release, then undrafts it.
 - **`dist-publish`** — commits the formula to the declared `tap` (`HOMEBREW_TAP_TOKEN`) and publishes the npm shim (OIDC + provenance, or `NPM_PACKAGE_REGISTRY_TOKEN` bootstrap). Each self-skips when its installer or secret is absent.
 
-`dist` is version-pinned via `cargo install cargo-dist --version 0.32.0 --locked`. Per-target Cargo features are not expressible in cargo-dist 0.32.0. Set them consumer-side via `cfg`, e.g. a Metal build gated on `cfg(target_os = "macos")`. macOS Developer-ID signing + notarization are deferred.
+`dist` is installed prebuilt and SHA-256 verified (version `0.32.0`) via [`rust/install-dist`](#composable-actions). Per-target Cargo features are not expressible in cargo-dist 0.32.0. Set them consumer-side via `cfg`, e.g. a Metal build gated on `cfg(target_os = "macos")`. macOS Developer-ID signing + notarization are deferred.
 
 </details>
 
@@ -229,10 +241,13 @@ Reusable sub-workflow with three parallel scans:
 | `check-docs` | transverse | Context dump + documentation check. |
 | `javascript/base` | JavaScript | Sets up Node + corepack pnpm, caches the store, writes `.npmrc` from env, then installs, lints, builds (when present), tests. |
 | `rust/base` | Rust | Resolves the toolchain from `rust-toolchain.toml`, caches the `~/.cargo` deps, runs [`rust/native-deps`](#composable-actions), then `cargo fmt --check`, `clippy -D warnings`, `test`. |
-| `rust/native-deps` | Rust | Runs the optional `ci/setup.sh` native build-dependency hook. Shared by `rust/base` and the publish verify build. No-op when absent. |
+| `rust/native-deps` | Rust | Runs the optional `ci/setup.sh` native build-dependency hook. Shared by `rust/base` and the `dist-build` matrix. No-op when absent. |
+| `rust/install-dist` | Rust | Installs cargo-dist's `dist` binary, prebuilt and SHA-256 verified (Linux/macOS/Windows). Shared by the `dist-plan`, `dist-build`, `dist-host` jobs. |
+| `rust/pin-version` | Rust | Installs version-pinned `cargo-set-version` (cargo-edit) and stamps `Cargo.toml` to the release tag. Shared by `publish` and the `dist-*` jobs. |
 | `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. The shared definition behind `security.yml`, the package `secrets` gate, and self-CI. |
 | `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml`, the npm `supply-chain` gate, and self-CI. |
 | `security/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The Rust `supply-chain` gate. |
+| `release/verify-tag` | transverse | Fails the release unless the checked-out `main` HEAD matches the tag SHA. Shared by the npm and Rust `publish` jobs — the tag-time jobs that check out `main` to push back; the `dist-*` jobs pin to the tag commit (`github.sha`) instead. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
 | `release/commit-artifacts` | transverse | Stages the given files and commits them back to `main` as `chore: release ${tag} [skip ci]`. No-op when nothing changed. |

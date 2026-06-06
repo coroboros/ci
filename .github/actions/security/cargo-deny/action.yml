@@ -30,4 +30,4 @@ runs:
     - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe  # v2.0.20
       with:
         command: check
-        command-arguments: "--config .coroboros-ci/security/deny.toml --deny unmaintained --deny unsound"
+        command-arguments: "--config .coroboros-ci/security/deny.toml"

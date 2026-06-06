@@ -1,0 +1,235 @@
+# Self-CI Actions
+name: Self-CI Actions
+
+# A PR self-tests its own composite logic. The repo is checked out under `_src/`; each job
+# builds a synthetic git fixture at the workspace root — where a composite's `run:` executes —
+# so the composites act on the fixture, never the real tree or its origin. Pushes target a
+# local bare remote; `contents: read` is the backstop against an accidental real-main push.
+# No secrets. rust/base + the dist-* chain need a real toolchain/tag — exercised at release
+# time and by the workflow_dispatch smokes below, not on every PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-tag:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Build fixture repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init -q
+          git config user.email "ci@ci"; git config user.name "ci"; git config commit.gpgsign false
+          git commit -q --allow-empty -m base
+          echo "GOOD_SHA=$(git rev-parse HEAD)" >> "${GITHUB_ENV}"
+      - name: Pass — HEAD matches tag SHA
+        uses: ./_src/.github/actions/release/verify-tag
+        env:
+          GITHUB_SHA: ${{ env.GOOD_SHA }}
+      - name: Move HEAD so it diverges from the tag SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git commit -q --allow-empty -m move
+      - name: Fail — main moved since the tag
+        id: moved
+        continue-on-error: true
+        uses: ./_src/.github/actions/release/verify-tag
+        env:
+          GITHUB_SHA: ${{ env.GOOD_SHA }}
+      - name: Assert the moved-main branch failed
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${{ steps.moved.outcome }}" = "failure" ] || { echo "::error::verify-tag must fail when HEAD != GITHUB_SHA"; exit 1; }
+          echo "::notice::verify-tag fails on moved main"
+
+  generate-changelog:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Build fixture history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init -q
+          git config user.email "ci@ci"; git config user.name "ci"; git config commit.gpgsign false
+          printf '# Changelog\n' > CHANGELOG.md
+          g() { git commit -q --allow-empty -m "$1"; }
+          g "chore: release 0.0.9"
+          g "feat(scope): add thing"
+          g "feat(api)!: drop v1"
+          g "fix: a bug"
+          g "docs: readme"
+          g "chore: tidy"
+          g "wip: experimental"
+      - name: Auto-generate from Conventional Commits
+        id: gen
+        uses: ./_src/.github/actions/release/generate-changelog
+        env:
+          GITHUB_REF_NAME: "0.1.0"
+      - name: Assert generated body + rewrite
+        shell: bash
+        env:
+          BODY: ${{ steps.gen.outputs.body }}
+        run: |
+          set -euo pipefail
+          # backticks in the grep needles are literal CHANGELOG bytes, not expansions
+          # shellcheck disable=SC2016
+          for needle in \
+            '### Breaking Changes' '- `api` — drop v1' \
+            '### Features' '- `scope` — add thing' \
+            '### Fixes' '- a bug' \
+            '### Documentation' '- readme' \
+            '### Configuration' '- tidy' \
+            '### Others' '- experimental'; do
+            grep -qF "${needle}" <<<"${BODY}" || { echo "::error::body missing: ${needle}"; exit 1; }
+          done
+          if grep -qF '0.0.9' <<<"${BODY}"; then echo "::error::release commit not suppressed"; exit 1; fi
+          grep -qE '^## v0\.1\.0 - ' CHANGELOG.md || { echo "::error::CHANGELOG.md not rewritten"; exit 1; }
+          echo "::notice::generate-changelog auto-gen + suppression OK"
+      - name: Reject malformed tag — v prefix
+        id: badv
+        continue-on-error: true
+        uses: ./_src/.github/actions/release/generate-changelog
+        env:
+          GITHUB_REF_NAME: "v1.2.3"
+      - name: Reject malformed tag — missing patch
+        id: badpatch
+        continue-on-error: true
+        uses: ./_src/.github/actions/release/generate-changelog
+        env:
+          GITHUB_REF_NAME: "1.2"
+      - name: Assert the SemVer gate rejected both
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${{ steps.badv.outcome }}" = "failure" ] || { echo "::error::v1.2.3 must fail the SemVer gate"; exit 1; }
+          [ "${{ steps.badpatch.outcome }}" = "failure" ] || { echo "::error::1.2 must fail the SemVer gate"; exit 1; }
+          echo "::notice::SemVer gate rejects malformed tags"
+
+  commit-artifacts:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Build fixture repo + local bare remote
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote="${RUNNER_TEMP}/origin.git"
+          git init -q --bare "${remote}"
+          git init -q
+          git config user.email "ci@ci"; git config user.name "ci"; git config commit.gpgsign false
+          git remote add origin "${remote}"
+          git commit -q --allow-empty -m base
+          git push -q origin HEAD:main
+          printf 'a\n' > art1.txt; printf 'b\n' > art2.txt
+          echo "REMOTE=${remote}" >> "${GITHUB_ENV}"
+      - name: Changed → commit + push (FILES word-split)
+        uses: ./_src/.github/actions/release/commit-artifacts
+        with:
+          files: art1.txt art2.txt
+        env:
+          GITHUB_REF_NAME: "1.0.0"
+      - name: Assert the remote advanced with both files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git --git-dir="${REMOTE}" log -1 --pretty=%s main | grep -qF 'chore: release 1.0.0 [skip ci]' \
+            || { echo "::error::wrong commit subject on pushed main"; exit 1; }
+          tree="$(git --git-dir="${REMOTE}" ls-tree --name-only main)"
+          grep -qx 'art1.txt' <<<"${tree}" || { echo "::error::art1.txt missing from pushed tree"; exit 1; }
+          grep -qx 'art2.txt' <<<"${tree}" || { echo "::error::art2.txt missing from pushed tree (FILES word-split)"; exit 1; }
+          echo "BEFORE=$(git --git-dir="${REMOTE}" rev-parse main)" >> "${GITHUB_ENV}"
+          echo "::notice::commit-artifacts pushed both artifacts"
+      - name: Nothing changed → no-op
+        uses: ./_src/.github/actions/release/commit-artifacts
+        with:
+          files: art1.txt
+        env:
+          GITHUB_REF_NAME: "1.0.0"
+      - name: Assert the no-op left the remote untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${BEFORE}" = "$(git --git-dir="${REMOTE}" rev-parse main)" ] \
+            || { echo "::error::no-op branch pushed unexpectedly"; exit 1; }
+          echo "::notice::commit-artifacts no-op left main untouched"
+
+  cargo-deny-guard:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Plant a forbidden consumer override
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > deny.exceptions.toml
+      - name: Composite must reject deny.exceptions.toml
+        id: reject
+        continue-on-error: true
+        uses: ./_src/.github/actions/security/cargo-deny
+      - name: Assert the reject guard fired
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${{ steps.reject.outcome }}" = "failure" ] || { echo "::error::cargo-deny must reject a consumer deny.exceptions.toml"; exit 1; }
+          echo "::notice::cargo-deny rejects consumer deny.exceptions.toml"
+
+  install-dist:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - uses: ./_src/.github/actions/rust/install-dist
+      - name: Assert dist is installed and runnable
+        shell: bash
+        run: |
+          set -euo pipefail
+          dist --version || { echo "::error::dist not on PATH after install-dist"; exit 1; }
+          echo "::notice::install-dist OK — $(dist --version)"
+
+  pin-version-manual:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Build fixture crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '[package]\nname = "smoke"\nversion = "0.0.0"\nedition = "2021"\n' > Cargo.toml
+          mkdir -p src; printf 'fn main() {}\n' > src/main.rs
+      - name: pin-version stamps the tag
+        uses: ./_src/.github/actions/rust/pin-version
+        env:
+          GITHUB_REF_NAME: "9.9.9"
+      - name: Assert the version was stamped
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^version = "9.9.9"$' Cargo.toml || { echo "::error::pin-version did not stamp 9.9.9"; exit 1; }
+          echo "::notice::pin-version (cargo-set-version) stamped 9.9.9"

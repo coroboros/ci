@@ -61,14 +61,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Verify tag points to main HEAD
-        shell: bash
-        run: |
-          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
-            echo "::error::main has moved since the tag was pushed — tag ${GITHUB_SHA}, main HEAD $(git rev-parse HEAD). Resolve manually."
-            exit 1
-          fi
-          echo "::notice::main HEAD matches tag SHA (${GITHUB_SHA})"
+      - uses: coroboros/ci/.github/actions/release/verify-tag@v0
 
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/javascript/base@v0
