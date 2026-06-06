@@ -15,7 +15,7 @@
 
 ### Fixes
 - `rust-packages` — gate `publish` on `dist-build` (`needs:` plus an explicit `!cancelled() && … && needs.dist-build.result != 'failure'`), so a failed binary build never produces a crates.io publish while the GitHub release stays a draft; a library crate (`dist-build` skipped) still publishes. Add a `concurrency` group that serializes a repo's releases — keyed per-repo on tags so one release's commit-back can't race another's, per-ref on branches where superseded CI cancels — and a `git pull --rebase` retry around the Homebrew tap push so concurrent releases don't clobber the shared tap.
-- `javascript-npm-packages` — add the ref-keyed `concurrency` group (tags serialize per repo, branches key per ref and cancel superseded CI), matching `rust-packages`, so two release tags can't race `release/commit-artifacts`' push to `main`.
+- `javascript-npm-packages` — add the same ref-keyed `concurrency` group as `rust-packages`, so two release tags can't race `release/commit-artifacts`' push to `main`.
 - `rust/base` — install the `rust-toolchain.toml` channel explicitly (`rustup toolchain install` with `rustfmt` + `clippy`) instead of relying on lazy auto-resolution on the first `cargo` invocation.
 - `rust-packages` — pass `--provenance` on both npm-shim publish paths (token bootstrap and OIDC), attesting the shim via the job's `id-token` regardless of the auth path.
 - `javascript-npm-packages` — gate `publish` on a new `supply-chain` job (osv-scanner, `needs:`). A known vulnerability now blocks the npm release; previously osv-scanner ran only in the parallel `security` job and could not stop a publish.
