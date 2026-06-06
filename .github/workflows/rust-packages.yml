@@ -73,7 +73,8 @@ jobs:
         name: Detect cargo-dist metadata
         shell: bash
         run: |
-          if grep -qE '^\[package\.metadata\.dist\]' Cargo.toml 2>/dev/null; then
+          # cargo-dist 0.32 keeps its global keys in [workspace.metadata.dist]; detect either table.
+          if grep -qE '^\[(package|workspace)\.metadata\.dist\]' Cargo.toml 2>/dev/null; then
             echo "::notice::cargo-dist metadata present — binary distribution enabled"
             tap="$(grep -E '^[[:space:]]*tap[[:space:]]*=' Cargo.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
             {
@@ -81,7 +82,7 @@ jobs:
               echo "tap=${tap}"
             } >> "${GITHUB_OUTPUT}"
           else
-            echo "::notice::no [package.metadata.dist] — binary jobs skip"
+            echo "::notice::no cargo-dist metadata — binary jobs skip"
             {
               echo "enabled=false"
               echo "tap="

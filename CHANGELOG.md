@@ -21,6 +21,7 @@
 - `javascript-npm-packages` — gate `publish` on a new `supply-chain` job (osv-scanner, `needs:`). A known vulnerability now blocks the npm release; previously osv-scanner ran only in the parallel `security` job and could not stop a publish.
 - `release` — drop the "move rolling major tag" step from the npm and Rust publish jobs. Reusable workflows run in the caller's context, so it force-pushed a meaningless `vN` ref into every consumer repo; the `v0` ref now moves on `coroboros/ci`'s own release (see `self-release`).
 - `rust-packages` — pin the `dist-plan`, `dist-build`, `dist-host` checkouts to the tag commit (`ref: ${{ github.sha }}`) rather than the moving `main`, dropping the unused `fetch-depth: 0` and `dist-plan`'s now-redundant `verify-tag`. The per-target binaries build the exact source the tag points to regardless of the `publish` commit-back timing; `verify-tag` stays on the `publish` jobs, the only ones that check out `main` to push back.
+- `rust-packages` — `dist-plan` detects binary distribution from `[package.metadata.dist]` or `[workspace.metadata.dist]`, so a cargo-dist 0.32 workspace-layout consumer isn't misread as a library crate.
 - `rust-packages` — guard `cargo publish` with a `git status --porcelain` allowlist (`Cargo.toml`/`Cargo.lock`/`CHANGELOG.md`); an unexpected dirty file now fails the release before the immutable crates.io publish instead of shipping silently under `--allow-dirty`.
 
 ### Refactor
