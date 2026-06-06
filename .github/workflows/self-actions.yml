@@ -69,7 +69,10 @@ jobs:
           git init -q --bare "${remote}"
           git config user.email "ci@ci"; git config user.name "ci"; git config commit.gpgsign false
           git remote set-url origin "${remote}"
-          git push -q origin HEAD:main
+          # Fully-qualified ref: the bare remote has no `main` yet and the PR checkout is a
+          # detached HEAD, so `HEAD:main` can't be guessed. The composite's own `HEAD:main`
+          # then resolves because main now exists (as it does on a real consumer's origin).
+          git push -q origin HEAD:refs/heads/main
           printf 'a\n' > art1.txt; printf 'b\n' > art2.txt
           echo "REMOTE=${remote}" >> "${GITHUB_ENV}"
       - name: Changed → commit + push (FILES word-split)
