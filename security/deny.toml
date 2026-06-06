@@ -11,8 +11,10 @@ all-features = true
 
 [advisories]
 # v2 schema: vulnerability advisories always error and cannot be downgraded;
-# `ignore` is the only suppressor and is kept empty. unmaintained/unsound at
-# "all" scope error on any matching crate (an abandoned crate is a takeover vector).
+# `ignore` is the only suppressor and is kept empty by default. unmaintained/unsound
+# at "all" scope error on any matching crate (an abandoned crate is a takeover vector).
+# Escape-hatch for an unfixable transitive advisory: add the ID below with a `# why`
+# comment in a PR to coroboros/ci — never a per-repo override (consumer deny.toml is ignored).
 yanked = "deny"
 unmaintained = "all"
 unsound = "all"

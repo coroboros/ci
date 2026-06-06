@@ -136,3 +136,63 @@ jobs:
           set -euo pipefail
           dist --version || { echo "::error::dist not on PATH after install-dist"; exit 1; }
           echo "::notice::install-dist OK — $(dist --version)"
+
+  native-deps-target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Plant a fixture ci/setup.sh that records CARGO_DIST_TARGET
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci
+          cat > ci/setup.sh <<'SH'
+          #!/usr/bin/env bash
+          echo "${CARGO_DIST_TARGET-}" > seen-target.txt
+          SH
+      - name: Host preflight — CARGO_DIST_TARGET unset
+        uses: ./.github/actions/rust/native-deps
+      - name: Assert the host hook ran and saw an empty target
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -f seen-target.txt ] || { echo "::error::ci/setup.sh did not run on host preflight"; exit 1; }
+          [ -z "$(cat seen-target.txt)" ] || { echo "::error::CARGO_DIST_TARGET must be empty on host preflight"; exit 1; }
+      - name: Export the target the way dist-build does
+        shell: bash
+        run: echo "CARGO_DIST_TARGET=aarch64-unknown-linux-gnu" >> "${GITHUB_ENV}"
+      - name: Cross leg — CARGO_DIST_TARGET exported
+        uses: ./.github/actions/rust/native-deps
+      - name: Assert the hook saw the exported target
+        shell: bash
+        run: |
+          set -euo pipefail
+          got="$(cat seen-target.txt)"
+          [ "${got}" = "aarch64-unknown-linux-gnu" ] || { echo "::error::ci/setup.sh saw '${got}', expected the exported target"; exit 1; }
+          echo "::notice::native-deps passes CARGO_DIST_TARGET through to ci/setup.sh"
+
+  test-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Absent hooks → no-op
+        uses: ./.github/actions/rust/test-deps
+      - name: Plant ci/test.env and ci/test-setup.sh
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci
+          printf 'FOO=1\n' > ci/test.env
+          cat > ci/test-setup.sh <<'SH'
+          #!/usr/bin/env bash
+          touch test-setup-ran
+          SH
+      - name: Run the test hooks
+        uses: ./.github/actions/rust/test-deps
+      - name: Assert fixtures ran and test.env propagated
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -f test-setup-ran ] || { echo "::error::ci/test-setup.sh did not run"; exit 1; }
+          [ "${FOO:-}" = "1" ] || { echo "::error::ci/test.env did not propagate FOO to the job env"; exit 1; }
+          echo "::notice::test-deps runs test-setup.sh and propagates test.env"

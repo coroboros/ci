@@ -14,6 +14,11 @@ on:
 permissions:
   contents: read
 
+# Serialize same-ref runs; queue behind an in-flight release rather than cancel it.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   preflight:
     if: ${{ github.ref_type == 'branch' }}
@@ -33,7 +38,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: coroboros/ci/.github/actions/security/cargo-deny@v0
 
-  secrets:
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -105,17 +110,25 @@ jobs:
           if-no-files-found: error
 
   dist-build:
-    needs: [dist-plan, supply-chain, secrets]   # no artifact builds until the gates pass
+    needs: [dist-plan, supply-chain, secret-scan]   # no artifact builds until the gates pass
     if: ${{ needs.dist-plan.outputs.enabled == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.dist-plan.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container && matrix.container.image || null }}
+    # The resolved target triple(s) reach the consumer's target-aware ci/setup.sh via native-deps.
+    env:
+      CARGO_DIST_TARGET: "${{ join(matrix.targets, ' ') }}"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           ref: ${{ github.sha }}
+
+      - name: Cache cargo + target
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+        with:
+          key: ${{ join(matrix.targets, '_') }}
 
       - uses: coroboros/ci/.github/actions/rust/install-dist@v0
 
@@ -141,8 +154,8 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: ${{ github.ref_type == 'tag' }}
-    needs: [supply-chain, secrets, dist-plan]   # no release ships until cargo-deny and gitleaks pass
+    if: ${{ github.ref_type == 'tag' && !cancelled() && needs.supply-chain.result == 'success' && needs.secret-scan.result == 'success' && needs.dist-plan.result == 'success' && needs.dist-build.result != 'failure' }}
+    needs: [supply-chain, secret-scan, dist-plan, dist-build]   # gates must pass; a failed binary build blocks publish (skipped dist-build = library crate, still publishes)
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main
@@ -268,7 +281,6 @@ jobs:
       id-token: write   # npm OIDC provenance
     env:
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-      NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
     steps:
       - name: Download global artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
@@ -302,7 +314,16 @@ jobs:
             git -C homebrew-tap add "Formula/$(basename "${f}")"
           done
           git -C homebrew-tap commit -m "release ${GITHUB_REF_NAME}"
-          git -C homebrew-tap push
+          # Concurrent releases of different repos push to the shared tap; rebase-retry on contention.
+          for attempt in 1 2 3 4 5; do
+            git -C homebrew-tap push && break
+            if [ "${attempt}" -eq 5 ]; then
+              echo "::error::Homebrew tap push failed after ${attempt} attempts"
+              exit 1
+            fi
+            echo "::warning::tap push rejected (attempt ${attempt}) — rebasing and retrying"
+            git -C homebrew-tap pull --rebase
+          done
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
@@ -322,11 +343,8 @@ jobs:
             exit 0
           fi
           for pkg in "${shims[@]}"; do
-            if [ -n "${NPM_PACKAGE_REGISTRY_TOKEN}" ]; then
-              npm publish --access public "${pkg}"
-            else
-              npm publish --provenance --access public "${pkg}"
-            fi
+            # Provenance attests via the job's id-token on both auth paths — token bootstrap or OIDC.
+            npm publish --provenance --access public "${pkg}"
           done
 
   security:

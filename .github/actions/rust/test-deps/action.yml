@@ -1,0 +1,21 @@
+# Rust Test Dependencies Action Composite
+name: rust-test-deps
+description: Load the optional ci/test.env into the job environment and run the optional ci/test-setup.sh test-fixture hook.
+
+runs:
+  using: composite
+  steps:
+    - name: Test environment and fixtures
+      shell: bash
+      run: |
+        if [ -f ci/test.env ]; then
+          grep -E '^[A-Za-z_][A-Za-z0-9_]*=' ci/test.env >> "${GITHUB_ENV}" || true
+          echo "::notice::Loaded ci/test.env into the job environment"
+        else
+          echo "::notice::No ci/test.env — no test environment overrides"
+        fi
+        if [ -f ci/test-setup.sh ]; then
+          bash ci/test-setup.sh
+        else
+          echo "::notice::No ci/test-setup.sh — no test fixtures"
+        fi
