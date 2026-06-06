@@ -61,22 +61,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - name: Rewire origin to a local bare remote + stage artifacts
+        with:
+          path: _src
+      - name: Build a fixture repo + local bare remote
         shell: bash
         run: |
           set -euo pipefail
-          remote="${RUNNER_TEMP}/origin.git"
-          git init -q --bare "${remote}"
+          # Throwaway non-shallow repo at the workspace root, where the composite's run executes.
+          # The PR's own checkout is shallow (push rejected) and lives under _src. GITHUB_REF_NAME
+          # is the real ref here — it only lands in the commit subject, asserted loosely below.
+          remote="${RUNNER_TEMP}/origin.git"; git init -q --bare "${remote}"
+          git init -q -b main
           git config user.email "ci@ci"; git config user.name "ci"; git config commit.gpgsign false
-          git remote set-url origin "${remote}"
-          # Fully-qualified ref: the bare remote has no `main` yet and the PR checkout is a
-          # detached HEAD, so `HEAD:main` can't be guessed. The composite's own `HEAD:main`
-          # then resolves because main now exists (as it does on a real consumer's origin).
+          git remote add origin "${remote}"
+          git commit -q --allow-empty -m base
           git push -q origin HEAD:refs/heads/main
           printf 'a\n' > art1.txt; printf 'b\n' > art2.txt
           echo "REMOTE=${remote}" >> "${GITHUB_ENV}"
       - name: Changed → commit + push (FILES word-split)
-        uses: ./.github/actions/release/commit-artifacts
+        uses: ./_src/.github/actions/release/commit-artifacts
         with:
           files: art1.txt art2.txt
       - name: Assert the remote advanced with both files
@@ -91,7 +94,7 @@ jobs:
           echo "BEFORE=$(git --git-dir="${REMOTE}" rev-parse main)" >> "${GITHUB_ENV}"
           echo "::notice::commit-artifacts pushed both artifacts"
       - name: Nothing changed → no-op
-        uses: ./.github/actions/release/commit-artifacts
+        uses: ./_src/.github/actions/release/commit-artifacts
         with:
           files: art1.txt
       - name: Assert the no-op left the remote untouched
