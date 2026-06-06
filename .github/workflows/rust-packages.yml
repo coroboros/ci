@@ -14,9 +14,10 @@ on:
 permissions:
   contents: read
 
-# Same-ref group: cancel superseded branch CI, never cancel an in-flight tag/release.
+# Tags serialize per repo so one release's commit-back can't race another's; branches key
+# per ref and cancel superseded runs, never an in-flight release.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.ref_type == 'tag' && github.repository || github.ref }}
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:

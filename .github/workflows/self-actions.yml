@@ -126,7 +126,13 @@ jobs:
           echo "::notice::cargo-deny rejects consumer deny.exceptions.toml"
 
   install-dist:
-    runs-on: ubuntu-latest
+    # cargo-dist packages the Windows zip flat (dist.exe at root) but the Linux/macOS
+    # tarballs nested — extraction differs per OS, so smoke all three, not just Linux.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: ./.github/actions/rust/install-dist
