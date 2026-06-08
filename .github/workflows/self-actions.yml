@@ -199,3 +199,27 @@ jobs:
           [ -f test-setup-ran ] || { echo "::error::ci/test-setup.sh did not run"; exit 1; }
           [ "${FOO:-}" = "1" ] || { echo "::error::ci/test.env did not propagate FOO to the job env"; exit 1; }
           echo "::notice::test-deps runs test-setup.sh and propagates test.env"
+
+  javascript-base:
+    # javascript/base is self-contained (no @v0 sub-composites), so it runs end-to-end against a
+    # real fixture. rust/base and the security-gate workflow reference @v0 composites that don't
+    # exist until this release moves v0 — they can't be self-tested pre-release.
+    runs-on: ubuntu-latest
+    env:
+      NPM_CONFIG_FILE: "registry=https://registry.npmjs.org/"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Stage the npm fixture at the workspace root
+        shell: bash
+        run: cp -a _src/test/fixtures/npm-package/. .
+      - uses: ./_src/.github/actions/javascript/base
+      - name: Assert install, lint, build, and test ran
+        shell: bash
+        run: |
+          set -euo pipefail
+          for m in lint-ran build-ran test-ran; do
+            [ -f "${m}" ] || { echo "::error::javascript/base did not run ${m%-ran}"; exit 1; }
+          done
+          echo "::notice::javascript/base ran install (sfw + frozen lockfile), lint, build, test on the fixture"

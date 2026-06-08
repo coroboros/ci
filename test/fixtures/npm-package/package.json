@@ -1,0 +1,11 @@
+{
+  "name": "ci-fixture-npm",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "lint": "touch lint-ran",
+    "build": "touch build-ran",
+    "test": "touch test-ran"
+  }
+}
