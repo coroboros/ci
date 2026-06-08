@@ -1,4 +1,4 @@
-# Security gitleaks Action Composite
+# Security Gitleaks Action Composite
 name: security-gitleaks
 description: Install gitleaks (SHA-256 verified) and scan with the canonical Coroboros ruleset. Emits SARIF.
 
