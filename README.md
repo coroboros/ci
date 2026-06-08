@@ -10,7 +10,7 @@
 Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose around the composite actions under `.github/actions/`.
 
 [![latest](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&label=latest&color=000000)](https://github.com/coroboros/ci/releases)
-[![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/self-lint.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/self-lint.yml)
+[![ci](https://img.shields.io/github/checks-status/coroboros/ci/main?style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions)
 [![branch](https://img.shields.io/badge/branch-main-000000?style=flat-square)](https://github.com/coroboros/ci)
 [![license](https://img.shields.io/badge/license-All%20Rights%20Reserved-000000?style=flat-square)](LICENSE.md)
 [![stars](https://img.shields.io/github/stars/coroboros/ci?style=flat-square&label=stars&color=000000)](https://github.com/coroboros/ci)
@@ -303,12 +303,12 @@ Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-cu
 
 ## Self-CI
 
-The workflows and composites are the product, so every PR runs them against this repo:
+`coroboros/ci` runs a CI on itself — lint, security, and the `v0` release move — plus a test layer that exercises its own composite actions, which are the product:
 
 - **Lint** (`self-lint.yml`) — `actionlint` + shellcheck, `yamllint`.
-- **Composites** (`self-test.yml`) — smoke every composite (`release/*`, `rust/*`, `security/*`) against the real checkout, and run `javascript/base` + `rust/base` end-to-end on a `test/fixtures/` package and crate.
 - **Security** (`self-security.yml`) — the `gitleaks` / `osv-scanner` composites and the `security-gate` / `security` workflows, via local `./` refs.
 - **Release** (`self-release.yml`) — moves the rolling `v0` tag onto each stable release.
+- **Test** (`self-test.yml`) — smoke every composite (`release/*`, `rust/*`, `security/*`) against the real checkout, and run `javascript/base` + `rust/base` end-to-end on a `test/fixtures/` package and crate.
 
 A workflow self-test resolves its composites at the released `@v0`, so a brand-new composite is testable through a workflow only once a release moves `v0` onto it.
 
