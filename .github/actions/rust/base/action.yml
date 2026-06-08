@@ -1,4 +1,3 @@
-# Rust Base Action Composite
 name: rust-base
 description: Base setup for a Rust pipeline job.
 

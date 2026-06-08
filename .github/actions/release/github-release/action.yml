@@ -1,4 +1,3 @@
-# Release GitHub Release Action Composite
 name: release-github-release
 description: Create a GitHub Release for the current tag with the provided notes body.
 

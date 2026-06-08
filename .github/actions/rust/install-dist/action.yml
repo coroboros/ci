@@ -1,4 +1,3 @@
-# Rust install-dist Action Composite
 name: rust-install-dist
 description: Install cargo-dist's `dist` binary (prebuilt, SHA-256 verified) onto PATH. Linux, macOS, Windows.
 

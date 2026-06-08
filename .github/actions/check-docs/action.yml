@@ -1,4 +1,3 @@
-# Check Docs Action Composite
 name: check-docs
 description: Verify documentation conventions and dump context.
 

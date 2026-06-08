@@ -1,4 +1,3 @@
-# Rust Test Dependencies Action Composite
 name: rust-test-deps
 description: Load the optional ci/test.env into the job environment and run the optional ci/test-setup.sh test-fixture hook.
 

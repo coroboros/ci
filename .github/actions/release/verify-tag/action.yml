@@ -1,4 +1,3 @@
-# Release Verify Tag Action Composite
 name: release-verify-tag
 description: Fail unless the checked-out main HEAD matches the tag SHA that triggered the run.
 

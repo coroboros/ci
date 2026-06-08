@@ -43,7 +43,8 @@
 
 ### Documentation
 - `README`, `CLAUDE.md` — document the native-CLI consumer contract (`ci/setup.sh` target-aware via `CARGO_DIST_TARGET`, `ci/test.env`, `ci/test-setup.sh`; each optional and a no-op when absent), the `deny.toml` escape-hatch for an unfixable transitive advisory (a justified central `ignore`, never per repo), and that the shared dist binaries are CPU-only so a consumer may keep a supplemental per-package workflow.
-- `README`, `SECURITY.md` — document the Rust supply-chain model (`cargo-deny` baseline, residual `build.rs` and no-cooldown gaps), the Socket Firewall and release-age cooldown, and the publish auth paths; collapse cross-references to remove duplication; add the `sfw` proxy-inspection caveat for parity with GitLab; document the opt-in binary-distribution layer (jobs, consumer contract, optional tap/npm secrets) and the imposed `cargo-deny` ruleset.
+- `README` — document the Rust supply-chain controls (`cargo-deny`, the `build.rs` and no-cooldown gaps), the npm hardening (Socket Firewall + release-age cooldown), the publish auth paths, and the opt-in binary-distribution layer (jobs, consumer contract, tap/npm secrets).
+- `SECURITY.md` — add the security policy (vulnerability reporting, 30-day disclosure default).
 - `README` — correct the `release/verify-tag` row (shared by the npm and Rust `publish` jobs, not "every job that acts on `main`"; the `dist-*` jobs pin to the tag commit) and the cargo-dist install note (`rust/install-dist`, prebuilt + SHA-256 verified); add the `rust/install-dist` composable row.
 - `README` — binary-distribution consumer contract: cargo-dist `0.32` takes its workspace-global keys (`cargo-dist-version`/`ci`/`publish-jobs`/`allow-dirty`) from `[workspace.metadata.dist]` only, and needs `allow-dirty = ["ci"]` so `dist plan` doesn't claim its own workflow — without these a binary consumer's `dist plan` fails.
 

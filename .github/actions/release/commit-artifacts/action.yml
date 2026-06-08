@@ -1,4 +1,3 @@
-# Release Commit Artifacts Action Composite
 name: release-commit-artifacts
 description: Commit release artifacts back to main after a tagged publish.
 
