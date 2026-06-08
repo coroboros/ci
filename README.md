@@ -325,9 +325,9 @@ Zero `inputs:` — configuration flows through the caller's `secrets:` block. Ev
 
 | name | required | description |
 | :--- | :---: | :--- |
-| `NPM_CONFIG_FILE` | ✔ | `.npmrc` content. Written to repo root by `javascript/base`. `${VAR}` references inside are expanded by npm at install time. |
+| `NPM_CONFIG_FILE` | yes | `.npmrc` content. Written to repo root by `javascript/base`. `${VAR}` references inside are expanded by npm at install time. |
 | `NPM_EXTRA_CONFIG` |  | Extra `.npmrc` lines appended after `NPM_CONFIG_FILE`. A **secret** — it lands in `.npmrc`, so it can carry auth material and must stay masked. |
-| `NPM_PACKAGE_REGISTRY` | ✔ | npm package registry URL. |
+| `NPM_PACKAGE_REGISTRY` | yes | npm package registry URL. |
 | `NPM_PACKAGE_PROXY_REGISTRY` |  | Optional npm proxy registry URL. |
 | `NPM_PACKAGE_REGISTRY_TOKEN` |  | npm Granular Access Token, scoped to the publishing organization with create-new-package permission. Required only for the token bootstrap (first publish of a new scoped package, before npm Trusted Publisher is bound). Absent → OIDC. |
 
