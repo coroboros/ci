@@ -1,4 +1,4 @@
-# Security Cargo Deny Action Composite (Rust)
+# Security Rust Cargo Deny Action Composite
 name: security-rust-cargo-deny
 description: Run cargo-deny against the canonical Coroboros ruleset (imposed, no consumer override). `checks` selects which cargo-deny checks run; empty runs all.
 

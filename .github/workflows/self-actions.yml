@@ -1,15 +1,12 @@
 # Self-CI Actions
 name: Self-CI Actions
 
-# A PR self-tests its own composite logic via local `./` refs. The composites run against
-# the real checkout, where GITHUB_SHA == HEAD (pull_request / push semantics). `commit-artifacts`
-# rewires `origin` to a local bare remote and relies on `contents: read` as the backstop, so no
-# real branch is touched. No secrets.
-#
-# A composite's tag-driven paths that read the runner's GITHUB_REF_NAME / GITHUB_SHA can't be
-# faked here — those reserved defaults are re-injected inside a composite and can't be overridden
-# by the caller — so generate-changelog's auto-gen and pin-version's stamp are exercised at real
-# release time. This workflow covers the parts reachable on a non-tag event.
+# A PR self-tests its composites via local `./` refs against the real checkout
+# (GITHUB_SHA == HEAD); `commit-artifacts` pushes to a local bare remote, with
+# `contents: read` as the backstop, so no real branch is touched. No secrets.
+# Tag-driven paths can't be faked here — the runner re-injects GITHUB_REF_NAME /
+# GITHUB_SHA inside a composite — so generate-changelog and pin-version stay
+# validated at real release time.
 on:
   push:
     branches: [main]

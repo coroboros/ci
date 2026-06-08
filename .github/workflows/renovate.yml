@@ -1,11 +1,10 @@
 # Renovate
 name: Renovate
 
-# Self-hosted Renovate: bumps the version-pinned tooling (renovate.json custom managers) and
-# re-syncs each paired tarball SHA-256 in the same PR via a postUpgradeTask. Runs only when this
-# workflow fires (the cron is the schedule). Needs a PAT in the RENOVATE_TOKEN secret so its PRs
-# trigger the rest of self-CI — the built-in GITHUB_TOKEN would not, and it can't touch workflow
-# files. PAT scope is documented in CLAUDE.md.
+# Self-hosted Renovate bumps the version-pinned tooling and re-syncs each paired
+# tarball SHA-256 in the same PR (postUpgradeTask). The RENOVATE_TOKEN PAT is
+# required so its PRs trigger the rest of self-CI, which GITHUB_TOKEN can't. Scope
+# in CLAUDE.md.
 on:
   schedule:
     - cron: "0 6 * * 1"
