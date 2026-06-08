@@ -52,10 +52,10 @@ flowchart TB
     CA -.->|"sparse-checkout"| R
 ```
 
-Three layers, each imposed and version-pinned:
+Three layers:
 
 1. **Consumer** — a repo's `.github/workflows/ci.yml` calls a reusable workflow with `uses: coroboros/ci/.github/workflows/<name>.yml@v0`.
-2. **Reusable workflows** — `javascript-npm-packages` / `rust-packages` orchestrate the pipeline and `needs:` the blocking `security-gate` plus the advisory `security` workflow.
+2. **Reusable workflows** — `javascript-npm-packages` / `rust-packages` orchestrate the pipeline: `publish` `needs:` the blocking `security-gate`, while the advisory `security` runs in parallel and never blocks.
 3. **Composite actions** (`.github/actions/*`) — the shared steps; the security composites sparse-check the canonical rulesets (`security/{deny.toml,.gitleaks.toml}`) from this repo at runtime.
 
 The GitHub-Actions sibling of [`coroboros/ci` on GitLab](https://gitlab.com/coroboros/ci) — the same osv-scanner, gitleaks, and cargo-deny gate, expressed as reusable workflows instead of GitLab templates.
@@ -558,9 +558,7 @@ jobs:
 
 ## Contributing
 
-- Open an issue before a non-trivial PR.
-- Conventional Commits drive the changelog and the version bump.
-- PRs target `main`; squash-merge, then tag the merge commit. See [Development flow](#development-flow).
+Internal Coroboros CI. Not open to external contributions — issues and pull requests from outside the organization are not accepted.
 
 ---
 
