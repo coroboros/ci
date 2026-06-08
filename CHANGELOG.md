@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.2 - 08/06/2026
+
+### Configuration
+- Bump the pinned action SHAs (Dependabot): `actions/checkout` v6, `actions/setup-node` v6, `actions/upload-artifact` v7, `actions/download-artifact` v8, `actions/dependency-review-action` (v4 SHA), `renovatebot/github-action` v46.1.15.
+
 ## v0.2.1 - 08/06/2026
 
 ### Refactor
