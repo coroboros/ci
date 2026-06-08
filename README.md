@@ -25,6 +25,7 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 - [Pipelines](#pipelines)
 - [Composable actions](#composable-actions)
 - [Development flow](#development-flow)
+- [Self-CI](#self-ci)
 - [Environment](#environment)
 - [Security](#security)
 - [Examples](#examples)
@@ -297,6 +298,19 @@ Nobody pushes directly to protected branches (`main`, `develop`, `release/x.y.z`
 Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-curated section for the tag if present.
 
 </details>
+
+---
+
+## Self-CI
+
+The workflows and composites are the product, so every PR runs them against this repo:
+
+- **Lint** (`self.yml`) — `actionlint` + shellcheck, `yamllint`.
+- **Composites** (`self-actions.yml`) — smoke every composite (`release/*`, `rust/*`, `security/*`) against the real checkout, and run `javascript/base` + `rust/base` end-to-end on a `test/fixtures/` package and crate.
+- **Security** (`self-security.yml`) — the `gitleaks` / `osv-scanner` composites and the `security-gate` / `security` workflows, via local `./` refs.
+- **Release** (`self-release.yml`) — moves the rolling `v0` tag onto each stable release.
+
+A workflow self-test resolves its composites at the released `@v0`, so a brand-new composite is testable through a workflow only once a release moves `v0` onto it.
 
 ---
 
