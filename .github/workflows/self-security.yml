@@ -1,6 +1,8 @@
 # Self-CI Security
 name: Self-CI Security
 
+# Local `./` refs so a PR self-tests its own composite changes — the @v0-pinned
+# security.yml can't (a reusable workflow's `./` resolves to the caller's checkout).
 on:
   push:
     branches: [main]
@@ -10,5 +12,16 @@ permissions:
   contents: read
 
 jobs:
-  security:
-    uses: ./.github/workflows/security.yml
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/security/gitleaks
+
+  osv-scanner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: ./.github/actions/security/osv-scanner

@@ -60,5 +60,6 @@ jobs:
         env:
           SHELLCHECK_OPTS: --severity=info
         with:
+          version: "v0.11.0"
           severity: info
           scandir: ./.github

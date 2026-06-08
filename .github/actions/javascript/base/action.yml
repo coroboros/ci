@@ -19,7 +19,7 @@ runs:
           exit 1
         fi
         node_version="$(tr -d '[:space:]v' < .node-version)"
-        echo "Resolved Node.js version: ${node_version} (from .node-version)"
+        echo "::notice::Resolved Node.js version: ${node_version} (from .node-version)"
         echo "node-version=${node_version}" >> "${GITHUB_OUTPUT}"
 
     - name: Setup Node.js
@@ -32,6 +32,10 @@ runs:
       run: |
         corepack enable
         pnpm --version
+
+    - name: Install Socket Firewall
+      shell: bash
+      run: npm install -g sfw
 
     - name: Setup pnpm cache
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
@@ -55,7 +59,8 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile --ignore-scripts
+      # Fail-closed: no sfw, no install.
+      run: sfw pnpm install --frozen-lockfile --ignore-scripts
 
     - name: Lint
       shell: bash
@@ -67,7 +72,7 @@ runs:
         if [ "$(jq .scripts.build package.json)" != "null" ]; then
           pnpm run build
         else
-          echo "Non required script 'build' skipped"
+          echo "::notice::Non required script 'build' skipped"
         fi
 
     - name: Test

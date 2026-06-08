@@ -8,16 +8,17 @@ runs:
     - name: Log run context
       shell: bash
       run: |
-        echo "Run context:"
+        echo "::group::Run context"
         echo "  GITHUB_REF_NAME       | ${GITHUB_REF_NAME}"
         echo "  GITHUB_REF_SLUG       | $(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | head -c 63 | sed 's/-$//')"
         echo "  GITHUB_REF_TYPE       | ${GITHUB_REF_TYPE}"
         echo "  GITHUB_REPOSITORY     | ${GITHUB_REPOSITORY}"
         echo "  GITHUB_SERVER_URL     | ${GITHUB_SERVER_URL}"
         echo "  GITHUB_REPOSITORY_URL | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+        echo "::endgroup::"
 
     - name: README check
       shell: bash
       run: |
         [ -f README.md ] || (echo "::error::A README.md file must be present at project root" && exit 1)
-        echo "README.md present"
+        echo "::notice::README.md present"

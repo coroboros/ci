@@ -19,30 +19,61 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 
 </div>
 
-**Imposed, not proposed.** Pipelines expose zero `inputs:` — same install flags, same publish auth, same security baseline across every Coroboros repo. Consumers wire it in.
+**Imposed, not proposed.** Pipelines expose zero `inputs:`. Every Coroboros repo inherits identical install flags, publish auth, and security gates. Consumers wire it in.
 
+- [Architecture](#architecture)
 - [Pipelines](#pipelines)
 - [Composable actions](#composable-actions)
 - [Development flow](#development-flow)
 - [Environment](#environment)
 - [Security](#security)
 - [Examples](#examples)
+- [Contributing](#contributing)
 - [License](#license)
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TB
+    C["Consumer repo<br/>.github/workflows/ci.yml"]
+
+    subgraph CI["coroboros/ci"]
+        direction TB
+        WF["Reusable workflows<br/>javascript-npm-packages · rust-packages<br/>security-gate · security"]
+        CA["Composite actions<br/>.github/actions/*"]
+        WF --> CA
+    end
+
+    R[("Imposed rulesets<br/>deny.toml · .gitleaks.toml")]
+
+    C ==>|"uses @v0"| WF
+    CA -.->|"sparse-checkout"| R
+```
+
+Three layers:
+
+1. **Consumer** — a repo's `.github/workflows/ci.yml` calls a reusable workflow with `uses: coroboros/ci/.github/workflows/<name>.yml@v0`.
+2. **Reusable workflows** — `javascript-npm-packages` / `rust-packages` orchestrate the pipeline: `publish` `needs:` the blocking `security-gate`, while the advisory `security` runs in parallel and never blocks.
+3. **Composite actions** (`.github/actions/*`) — the shared steps; the security composites sparse-check the canonical rulesets (`security/{deny.toml,.gitleaks.toml}`) from this repo at runtime.
+
+The GitHub-Actions sibling of [`coroboros/ci` on GitLab](https://gitlab.com/coroboros/ci) — the same osv-scanner, gitleaks, and cargo-deny gate, expressed as reusable workflows instead of GitLab templates.
 
 ---
 
 ## Pipelines
 
+Pin `@v0` (rolling major, tracks the latest release) or `@x.y.z` (the workflow file; nested composites still follow `@v0`).
+
 ### `javascript-npm-packages.yml`
 
-Bundled NPM CI.
+**Requirements**
+- Files — `.node-version`, `package.json`, `pnpm-lock.yaml`, `README.md`.
+- `package.json` — `packageManager: "pnpm@X.Y.Z"` (pnpm is the only supported manager, run via corepack), `scripts.lint`, `scripts.test`; `scripts.build` optional.
+- Secrets — see [Environment](#environment).
 
-Consumer requirements:
-- `.node-version`
-- `package.json` with
-  - `packageManager: "pnpm@X.Y.Z"`, `scripts.lint`, `scripts.test`.
-  - `scripts.build` is optional (auto-detected).
-- `pnpm-lock.yaml` — required for `--frozen-lockfile`.
+**Jobs**
 
 <details>
 <summary><em>preflight</em></summary>
@@ -51,10 +82,19 @@ Consumer requirements:
 
 **Trigger**: `branch push`
 
-**Sequence**:
-1. Checkout
-2. Run [`check-docs`](#composable-actions)
-3. Run [`javascript/base`](#composable-actions)
+1. [`check-docs`](#composable-actions)
+2. [`javascript/base`](#composable-actions) — install, lint, build, test
+
+</details>
+
+<details>
+<summary><em>security-gate</em></summary>
+
+<br>
+
+**Trigger**: `every push` — gates `publish`.
+
+Calls [`security-gate.yml`](#security-gateyml): osv-scanner + gitleaks. A vulnerable dependency or leaked secret blocks the release. See [Security](#security).
 
 </details>
 
@@ -63,19 +103,17 @@ Consumer requirements:
 
 <br>
 
-**Trigger**: `tag push`
+**Trigger**: `tag push` — gated by `security-gate`.
 
-**Sequence**:
-1. Checkout `main` with full history
-2. Verify `main` HEAD matches the tag SHA
-3. Run [`check-docs`](#composable-actions)
-4. Run [`javascript/base`](#composable-actions)
-5. Pin `package.json` version to the tag
-6. Generate `CHANGELOG.md` section via [`release/generate-changelog`](#composable-actions)
-7. Publish to npm — OIDC + provenance or token-based via `.npmrc` (see [Security](#security))
-8. Create GitHub Release via [`release/github-release`](#composable-actions)
-9. Commit release artifacts back to `main` as `chore: release ${tag}`
-10. Move rolling major tag `vN` to the release commit (skipped on pre-release tags)
+1. Checkout `main`
+2. [`verify-tag`](#composable-actions)
+3. [`check-docs`](#composable-actions)
+4. [`javascript/base`](#composable-actions)
+5. Pin `package.json` to the tag
+6. [`generate-changelog`](#composable-actions)
+7. Publish to npm — auth: [Security](#security)
+8. [`github-release`](#composable-actions)
+9. [`commit-artifacts`](#composable-actions)
 
 </details>
 
@@ -86,23 +124,115 @@ Consumer requirements:
 
 **Trigger**: `every call`
 
-Calls `security.yml` — see [Security](#security).
+Calls the advisory [`security.yml`](#securityyml). Reports, never blocks.
 
 </details>
 
+### `rust-packages.yml`
+
+**Requirements**
+- Files — `rust-toolchain.toml`, `Cargo.toml`, committed `Cargo.lock`, `README.md`.
+- Compile-time assets (`include_str!`, `build.rs` inputs) must stay in the package — the `package` job verify-builds it.
+- Optional hooks — `ci/setup.sh` (native build deps), `ci/test.env` + `ci/test-setup.sh` (test fixtures).
+- Secrets — see [Environment](#environment), all optional. Binary distribution is opt-in (below); the cargo-deny policy is imposed, no consumer config (see [Security](#security)).
+
+**Jobs**
+
+<details>
+<summary><em>preflight</em></summary>
+
+<br>
+
+**Trigger**: `branch push` — matrix `ubuntu` / `macos` / `windows`.
+
+1. [`check-docs`](#composable-actions)
+2. [`rust/base`](#composable-actions) — fmt, clippy, test
+
+</details>
+
+<details>
+<summary><em>security-gate</em></summary>
+
+<br>
+
+**Trigger**: `every push` — gates `publish`.
+
+Calls [`security-gate.yml`](#security-gateyml): cargo-deny + gitleaks. License policy runs advisory in `security`. See [Security](#security).
+
+</details>
+
+<details>
+<summary><em>package</em></summary>
+
+<br>
+
+**Trigger**: `branch push`
+
+Verify-builds the packaged crate, so a compile-time asset dropped from the package fails the PR rather than the tagged publish.
+
+</details>
+
+<details>
+<summary><em>publish</em></summary>
+
+<br>
+
+**Trigger**: `tag push` — gated by `security-gate`; skipped if `dist-build` fails.
+
+1. Checkout `main`
+2. [`verify-tag`](#composable-actions)
+3. [`check-docs`](#composable-actions)
+4. [`rust/base`](#composable-actions)
+5. [`pin-version`](#composable-actions)
+6. [`generate-changelog`](#composable-actions)
+7. `cargo publish` — auth: [Security](#security)
+8. [`github-release`](#composable-actions)
+9. [`commit-artifacts`](#composable-actions)
+
+</details>
+
+<details>
+<summary><em>binary distribution (opt-in)</em></summary>
+
+<br>
+
+**Trigger**: `tag push`, when `Cargo.toml` declares `[package.metadata.dist]`. Library crates self-skip.
+
+1. `dist-plan` — per-target build matrix
+2. `dist-build` — per-target archives
+3. `dist-host` — installers, Homebrew formula, npm shim; uploads assets, undrafts the release
+4. `dist-publish` — tap + npm shim
+
+The pipeline owns the single release; cargo-dist only builds. Consumer config — the cargo-dist metadata, with `allow-dirty = ["ci"]` in `[workspace.metadata.dist]`. Per-target features via `cfg`; shared binaries are CPU-only. `HOMEBREW_TAP_TOKEN` / `NPM_PACKAGE_REGISTRY_TOKEN` optional.
+
+</details>
+
+<details>
+<summary><em>security</em></summary>
+
+<br>
+
+**Trigger**: `every call`
+
+Calls the advisory [`security.yml`](#securityyml). Reports, never blocks.
+
+</details>
+
+### `security-gate.yml`
+
+The blocking gate, split from the advisory layer so it can be owned as a black box. Two parallel jobs, both fail the release through the caller's `needs:` graph — a dev can't bypass them:
+
+- **`supply-chain`** — auto-routed by ecosystem: a `Cargo.toml` repo runs [`security/rust/cargo-deny`](#composable-actions) (advisories + bans + sources); any other runs [`security/osv-scanner`](#composable-actions). One tool per repo, never both, so a crate isn't vuln-scanned twice. A repo with no supported manifest skips (osv's no-manifest path).
+- **`secret-scan`** — [`security/gitleaks`](#composable-actions), full git history, canonical ruleset.
+
+Imposed on every package pipeline (a `security-gate` job `needs:`-ed by `publish`) and importable directly by a non-package repo. Holds only what *blocks*: a compromised dependency or a leaked secret. License and quality policy live in `security.yml`.
+
 ### `security.yml`
 
-Reusable sub-workflow with three parallel scans:
+The advisory layer — reports, never blocks (parity with GitLab's `allow_failure: true`):
 
-- **`gitleaks`** — Installs `v8.30.1` (SHA-256 verified), scans git history with the [`security/.gitleaks.toml`](security/.gitleaks.toml) ruleset, fails on detected leaks. Emits SARIF as the `gitleaks-report` artifact (30-day retention).
 - **`dependency-review`** — PR-only; needs repo's **Dependency graph** enabled. Fails on high-severity CVE introduced by the dep diff. Uses `actions/dependency-review-action@v4`.
-- **`osv-scanner`** — Scans lockfiles recursively against [OSV.dev](https://osv.dev/) via `google/osv-scanner-action@v2`. Fails on any known vulnerability.
-
-Imposed on every Coroboros workflow. Standalone wire-up — see [Examples](#examples).
-
----
-
-**Notes** — pin via `@v0` (rolling major, auto-bumped on each release) or `@x.y.z` (immutable). Pipelines don't chain via `needs:`; the only sub-workflow call is `security` → `security.yml`.
+- **`licenses`** — Rust-only (`continue-on-error`): [`security/rust/cargo-deny`](#composable-actions) `checks: licenses` against the canonical allow-list. A non-allowed license is surfaced, never blocks the release. Skips a repo with no `Cargo.toml`.
 
 ---
 
@@ -112,8 +242,18 @@ Imposed on every Coroboros workflow. Standalone wire-up — see [Examples](#exam
 | :--- | :--- | :--- |
 | `check-docs` | transverse | Context dump + documentation check. |
 | `javascript/base` | JavaScript | Sets up Node + corepack pnpm, caches the store, writes `.npmrc` from env, then installs, lints, builds (when present), tests. |
+| `rust/base` | Rust | Installs the toolchain, caches via `rust-cache`, runs [`rust/native-deps`](#composable-actions), then fmt, clippy, [`rust/test-deps`](#composable-actions), test. |
+| `rust/native-deps` | Rust | Runs the optional `ci/setup.sh` native build-dependency hook (sees `CARGO_DIST_TARGET` on a `dist-build` cross leg). Shared by `rust/base` and the `dist-build` matrix. No-op when absent. |
+| `rust/test-deps` | Rust | Loads the optional `ci/test.env` into the job env and runs the optional `ci/test-setup.sh` fixture hook before `cargo test`. Used by `rust/base`. No-op when absent. |
+| `rust/install-dist` | Rust | Installs cargo-dist's `dist` binary, prebuilt and SHA-256 verified (Linux/macOS/Windows). Shared by the `dist-plan`, `dist-build`, `dist-host` jobs. |
+| `rust/pin-version` | Rust | Installs version-pinned `cargo-set-version` (cargo-edit) and stamps `Cargo.toml` to the release tag. Shared by `publish` and the `dist-*` jobs. |
+| `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. Behind `security-gate.yml`'s `secret-scan` and self-CI. |
+| `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Behind `security-gate.yml`'s `supply-chain` (non-Rust) and self-CI. |
+| `security/rust/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The `checks` input selects which checks run — `advisories bans sources` for the `security-gate.yml` supply-chain, `licenses` for the `security.yml` advisory layer. |
+| `release/verify-tag` | transverse | Fails the release unless the checked-out `main` HEAD matches the tag SHA. Shared by the npm and Rust `publish` jobs — the tag-time jobs that check out `main` to push back; the `dist-*` jobs pin to the tag commit (`github.sha`) instead. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
-| `release/github-release` | transverse | Creates the GitHub Release for the current tag. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
+| `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog`. |
+| `release/commit-artifacts` | transverse | Stages the given files and commits them back to `main` as `chore: release ${tag} [skip ci]`. No-op when nothing changed. |
 
 ---
 
@@ -162,10 +302,10 @@ Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-cu
 
 ## Environment
 
-Zero inputs on pipelines and on every composite — imposed, not proposed. Configuration flows through the caller's `secrets:` block. Every npm-publish-related value is a **secret** (encrypted at rest, masked in logs); none of them are GitHub `vars`.
+Zero `inputs:` — configuration flows through the caller's `secrets:` block. Every value is a **secret** (encrypted at rest, masked in logs), never a GitHub `var`.
 
 <details>
-<summary><em>Secrets (caller's <code>secrets:</code> block)</em></summary>
+<summary><em>Secrets — <code>javascript-npm-packages.yml</code></em></summary>
 
 <br>
 
@@ -180,37 +320,17 @@ Zero inputs on pipelines and on every composite — imposed, not proposed. Confi
 </details>
 
 <details>
-<summary><em><code>javascript/base</code> env contract (standalone composition)</em></summary>
+<summary><em>Secrets — <code>rust-packages.yml</code></em></summary>
 
 <br>
 
-| env | required | description |
-| :-- | :---: | :--- |
-| `NPM_CONFIG_FILE` | ✔ — fail if missing | `.npmrc` content |
-| `NPM_EXTRA_CONFIG` |  | Appended after `NPM_CONFIG_FILE` |
+All optional. A consumer that wires none still gets crates.io plus prebuilt archives and installers on the release; Homebrew and npm activate only when their secret (or OIDC) is configured.
 
-Set both at the caller's workflow- or job-level `env:`.
-
-</details>
-
-<details>
-<summary><em><code>release/*</code> composites I/O</em></summary>
-
-<br>
-
-**`release/generate-changelog`** — no inputs, no secrets. Reads `GITHUB_REF_NAME`. Requires `fetch-depth: 0` for `git describe`. Output:
-
-| output | description |
-| :--- | :--- |
-| `body` | CHANGELOG section body — use as release notes. |
-
-**`release/github-release`** — input:
-
-| input | required | description |
+| name | required | description |
 | :--- | :---: | :--- |
-| `body` | ✔ | Release notes body, typically `steps.<id>.outputs.body` from `release/generate-changelog`. |
-
-Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` internally via `GH_TOKEN`.
+| `CARGO_REGISTRY_TOKEN` |  | crates.io token. Bootstraps the first publish of a new crate; absent → OIDC Trusted Publishing. |
+| `HOMEBREW_TAP_TOKEN` |  | Push access to the Homebrew tap repo named by `tap` in `[package.metadata.dist]`. Absent → the formula publish self-skips. |
+| `NPM_PACKAGE_REGISTRY_TOKEN` |  | npm token bootstrapping the first publish of the binary npm shim; absent → OIDC Trusted Publisher. The shim publishes with provenance either way. |
 
 </details>
 
@@ -218,17 +338,57 @@ Caller job needs `permissions: contents: write`. Uses `${{ github.token }}` inte
 
 ## Security
 
+Three pillars: a blocking [`security-gate`](#security-gateyml) that stops a release on a known vulnerability or leaked secret; supply-chain hardening at the workflow layer (npm firewall + cooldown, Rust `cargo-deny`); and SHA/version-pinned tooling under imposed canonical rulesets.
+
 <details>
-<summary><em>Supply chain — pnpm install flags</em></summary>
+<summary><em>Supply chain — npm</em></summary>
 
 <br>
 
-`pnpm install --frozen-lockfile --ignore-scripts` runs inside `javascript/base`.
+The target: a hijacked maintainer, a typosquat, a `postinstall` payload, or a fresh bad version pulled before it is caught. `javascript/base` enforces four layers — the runner equivalent of the GitLab pipeline's image-baked hardening:
 
-- `--frozen-lockfile` — fails on stale or tampered `pnpm-lock.yaml`. Gate against transitive-dependency injection.
-- `--ignore-scripts` — skips lifecycle scripts (`preinstall`, `install`, `postinstall`) of every dependency. Cuts the postinstall supply-chain vector.
+| Layer | Mechanism | Where |
+| :--- | :--- | :--- |
+| Cooldown | versions under 7 days old are quarantined; `@coroboros/*` excluded so internal publishes flow immediately | consumer `pnpm-workspace.yaml` |
+| Firewall | Socket Firewall (`sfw`) proxies the fetch, blocks confirmed-malicious packages before download | `javascript/base` |
+| No install scripts | `--ignore-scripts` blocks `postinstall` code execution | `javascript/base` + `.npmrc` |
+| Frozen lockfile | `--frozen-lockfile` rejects a stale or tampered `pnpm-lock.yaml` | `javascript/base` |
 
-pnpm CLI resolved via corepack from `packageManager`. No floating version reaches the runner.
+Cooldown is consumer config — pnpm 11 reads `pnpm-workspace.yaml` (`minimum-release-age` in `.npmrc` on pnpm 10.x):
+
+```yaml
+# pnpm-workspace.yaml
+minimumReleaseAge: 10080            # 7 days, in minutes
+minimumReleaseAgeExclude:
+  - '@coroboros/*'                  # internal packages install immediately
+```
+
+**Honest gaps.** `sfw` is fail-closed — if it can't install or run, the job fails rather than fetch unprotected. It inspects public-registry fetches out of the box; packages pulled through a private proxy pass uninspected, held instead by the cooldown. pnpm itself is corepack-resolved from `packageManager`, so no floating version reaches the runner.
+
+</details>
+
+<details>
+<summary><em>Supply chain — Rust</em></summary>
+
+<br>
+
+GitHub-hosted runners share no hardened base image, so the Rust pipeline enforces its supply-chain controls in the workflow:
+
+| Risk | Rust control |
+| :--- | :--- |
+| Untrusted source, typosquat | `cargo-deny` sources — crates.io only; git and alternative registries denied |
+| Lock drift, tampered dependencies | committed `Cargo.lock` + `--locked` on `clippy` and `test` — fails on a stale or altered lock |
+| Known vulnerability | `cargo-deny` advisories — RustSec vulnerabilities, unmaintained, unsound, yanked |
+| License drift | `cargo-deny` licenses — allow-list, **advisory** (reports, never blocks) |
+| Banned or wildcard dependency | `cargo-deny` bans |
+
+The blocking checks run in [`security-gate.yml`](#security-gateyml); `licenses` runs advisory in `security.yml`. The policy is **imposed** — cargo-deny applies the canonical [`security/deny.toml`](security/deny.toml) via `--config`, sparse-checked from `coroboros/ci` (the [`gitleaks`](#composable-actions) model). A consumer `deny.toml` is ignored, a `deny.exceptions.toml` fails the job. An unfixable transitive advisory is suppressed centrally — a PR adds a justified `ignore = ["RUSTSEC-…"]` to the canonical `deny.toml`, never per repo.
+
+**Publish auth.** crates.io uses OIDC Trusted Publishing by default — a short-lived token per run, no stored secret. `CARGO_REGISTRY_TOKEN` only bootstraps the first publish of a new crate; configure Trusted Publishing afterwards and drop it. The verify build runs on `cargo publish` (no `--no-verify`), catching a crate that only builds in-workspace before the immutable release.
+
+Two residual risks have no clean CI control. Both are documented here:
+- **Build scripts run.** `cargo` has no `--ignore-scripts`; `build.rs` and proc-macros execute at build time. `--locked`, `cargo-deny` bans, and dependency review reduce the exposure; they do not remove it.
+- **No publish cooldown.** crates.io has no `minimumReleaseAge`, so a freshly hijacked version is held off by the committed lock and `cargo-deny` advisories rather than a time delay.
 
 </details>
 
@@ -255,10 +415,10 @@ prefer-online=true
 | `@coroboros:registry=https:${NPM_PACKAGE_REGISTRY}` | Scope-resolved registry — `${NPM_PACKAGE_REGISTRY}` expands from the same-named secret. |
 | `save-exact=true` | Pin exact versions on `add` / `install`. |
 | `fund=false` | Suppress funding noise in CI logs. |
-| `audit=false` | `osv-scanner` (in `security.yml`) covers vulnerability scans natively. |
-| `ignore-scripts=true` | Belt-and-suspenders against postinstall supply-chain attacks — backs up the `--ignore-scripts` flag already passed by `javascript/base` on every `pnpm install`. |
+| `audit=false` | `osv-scanner` (in `security-gate.yml`) covers vulnerability scans natively. |
+| `ignore-scripts=true` | Defense in depth against postinstall supply-chain attacks — backs up the `--ignore-scripts` flag already passed by `javascript/base` on every `pnpm install`. |
 | `package-lock=false` | Prevent `npm` from emitting a parasitic `package-lock.json` in pnpm repos. |
-| `lockfile=true` | Explicit `pnpm-lock.yaml` enablement. Required on pnpm `< 11.0.0` consumers, where the preceding `package-lock=false` is interpreted as `lockfile=false` and collides with `pnpm install --frozen-lockfile`. Pnpm `>= 11` already defaults to `true` and ignores `package-lock` for `pnpm-lock.yaml`, so the line is harmless there. |
+| `lockfile=true` | Explicit `pnpm-lock.yaml` enablement. On pnpm 10 the preceding `package-lock=false` is read as `lockfile=false`, which collides with `--frozen-lockfile`; pnpm 11 defaults to `true` and ignores `package-lock` here, so the line is harmless. |
 | `prefer-online=true` | Re-fetch dep metadata each install — local cache cannot mask a yanked or republished version. |
 
 </details>
@@ -284,42 +444,20 @@ Auto-detected by `NPM_PACKAGE_REGISTRY_TOKEN` **secret** presence on the consume
 | `NPM_PACKAGE_REGISTRY_TOKEN` | npm Granular Access Token scoped to the publishing organization with create-new-package permission. Long-lived; revoke after migrating to OIDC. |
 | `NPM_EXTRA_CONFIG` | `${NPM_PACKAGE_REGISTRY}:_authToken=${NPM_PACKAGE_REGISTRY_TOKEN}` — appended to `.npmrc` by `javascript/base`. Stored as a **secret** because it carries auth expansion. |
 
-`npm publish` is used on the bootstrap path (not `pnpm publish`) because pnpm `>= 11.1.3` in CI auto-attempts the OIDC token exchange and does not fall back to the `.npmrc` token if OIDC fails. `--ignore-scripts --access public` skips publish-time lifecycle hooks (`prepublishOnly` excepted — known `npm` behavior). The published tarball is identical to `pnpm publish`'s.
+`npm publish` is used on the bootstrap path (not `pnpm publish`) because pnpm 11 in CI auto-attempts the OIDC token exchange and won't fall back to the `.npmrc` token. `--ignore-scripts --access public` skips publish-time lifecycle hooks (`prepublishOnly` excepted — known `npm` behavior). The tarball is identical to `pnpm publish`'s.
 
 After the first publish, configure the npm Trusted Publisher form (Publisher type: GitHub Actions; Organization: the publishing org; Repository: consumer repo; Workflow filename: `ci.yml`; Environment: empty), then open a `chore(ci):` PR dropping `NPM_PACKAGE_REGISTRY_TOKEN` + `NPM_EXTRA_CONFIG` from the caller's `secrets:` block. Revoke the npm token. `1.0.1+` publishes via OIDC + provenance.
 
 </details>
 
 <details>
-<summary><em>Secret isolation</em></summary>
+<summary><em>Pinning &amp; imposed rulesets</em></summary>
 
 <br>
 
-Each `workflow_call.secrets:` block declares ONLY the secrets the job consumes. No `secrets: inherit` anywhere.
-
-</details>
-
-<details>
-<summary><em>Action pinning + Dependabot</em></summary>
-
-<br>
-
-Third-party actions across workflows + composites are pinned to a commit SHA with an inline `# vX` comment. Floating refs (`@master`, `@main`, `@vX`) are banned.
-
-Self-CI binaries pinned by version. `actionlint` and `gitleaks` install from release tarballs with SHA-256 verification; `yamllint` via `pip install` with version pin. No `curl | bash`.
-
-`.github/dependabot.yml` opens weekly grouped auto-PRs to bump pinned SHAs across `.github/workflows/*` and `.github/actions/**/action.yml`. Consumers should add their own ecosystem entries (e.g., `npm`).
-
-</details>
-
-<details>
-<summary><em>Canonical gitleaks config</em></summary>
-
-<br>
-
-Canonical ruleset at `security/.gitleaks.toml` in this repo. Stack-specific rules cover Resend, Neon Postgres, PostHog, and GitHub fine-grained PATs on top of the gitleaks defaults.
-
-`security.yml` sparse-checks the file out of `coroboros/ci` at runtime — imposed, no consumer override.
+- **Action pinning.** Third-party actions are pinned to a commit SHA with an inline `# vX` comment — no floating `@main` / `@vX`. Self-CI tooling pins by version with SHA-256-verified tarballs, no `curl | bash`. `.github/dependabot.yml` auto-PRs the SHA bumps; renovate auto-PRs the tool versions.
+- **Imposed rulesets.** `security/deny.toml` and `security/.gitleaks.toml` are sparse-checked from this repo at runtime — a consumer can't override them. The gitleaks ruleset adds Resend, Neon, PostHog, and GitHub PAT rules on top of the defaults.
+- **Secret isolation.** Each `workflow_call.secrets:` block declares only the secrets the job consumes — no `secrets: inherit`.
 
 </details>
 
@@ -360,9 +498,42 @@ jobs:
 </details>
 
 <details>
-<summary><em><code>security.yml</code> standalone (non-npm repo)</em></summary>
+<summary><em><code>rust-packages.yml</code> wire-up</em></summary>
 
 <br>
+
+```yaml
+# consumer-repo/.github/workflows/ci.yml
+name: CI
+on:
+  push:
+    branches: [develop, main]
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: coroboros/ci/.github/workflows/rust-packages.yml@v0
+    permissions:
+      contents: write   # GitHub Release + commit-back on tag
+      id-token: write   # crates.io + npm OIDC publish on tag
+    secrets:
+      # First publish of a new crate only — drop once Trusted Publishing is configured (see Security):
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      # Binary distribution ([package.metadata.dist] in Cargo.toml) — both optional:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      NPM_PACKAGE_REGISTRY_TOKEN: ${{ secrets.NPM_PACKAGE_REGISTRY_TOKEN }}
+```
+
+</details>
+
+<details>
+<summary><em>security on a non-package repo</em></summary>
+
+<br>
+
+A repo that ships no package still imports the security workflows directly — the blocking gate plus the advisory layer:
 
 ```yaml
 # consumer-repo/.github/workflows/security.yml
@@ -378,62 +549,19 @@ permissions:
   contents: read
 
 jobs:
-  scan:
+  gate:
+    uses: coroboros/ci/.github/workflows/security-gate.yml@v0
+  advisory:
     uses: coroboros/ci/.github/workflows/security.yml@v0
 ```
 
 </details>
 
-<details>
-<summary><em>Compose with <code>javascript/base</code></em></summary>
+---
 
-<br>
+## Contributing
 
-```yaml
-jobs:
-  custom:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
-      NPM_EXTRA_CONFIG: ${{ secrets.NPM_EXTRA_CONFIG }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: coroboros/ci/.github/actions/check-docs@v0
-      - uses: coroboros/ci/.github/actions/javascript/base@v0
-      - run: pnpm run my-custom-script
-        shell: bash
-```
-
-</details>
-
-<details>
-<summary><em>Compose a custom release pipeline (non-npm artifact)</em></summary>
-
-<br>
-
-```yaml
-jobs:
-  publish:
-    if: ${{ github.ref_type == 'tag' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-      - id: changelog
-        uses: coroboros/ci/.github/actions/release/generate-changelog@v0
-      # ...your publish step (docker push, gh release upload, etc.)...
-      - uses: coroboros/ci/.github/actions/release/github-release@v0
-        with:
-          body: ${{ steps.changelog.outputs.body }}
-```
-
-</details>
+Internal Coroboros CI. Not open to external contributions — issues and pull requests from outside the organization are not accepted.
 
 ---
 

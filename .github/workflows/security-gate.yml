@@ -1,0 +1,44 @@
+# Security Gate CI
+name: Security Gate
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - id: detect
+        name: Route supply-chain scan by ecosystem
+        shell: bash
+        # One tool per repo, never both — cargo-deny covers a Rust crate's vulns, so osv
+        # must not double-scan it.
+        run: |
+          if [ -f Cargo.toml ]; then
+            echo "::notice::Cargo.toml present — supply-chain via cargo-deny"
+            echo "ecosystem=rust" >> "${GITHUB_OUTPUT}"
+          else
+            echo "::notice::no Cargo.toml — supply-chain via osv-scanner"
+            echo "ecosystem=other" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - if: ${{ steps.detect.outputs.ecosystem == 'rust' }}
+        uses: coroboros/ci/.github/actions/security/rust/cargo-deny@v0
+        with:
+          checks: "advisories bans sources"
+
+      - if: ${{ steps.detect.outputs.ecosystem == 'other' }}
+        uses: coroboros/ci/.github/actions/security/osv-scanner@v0
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - uses: coroboros/ci/.github/actions/security/gitleaks@v0

@@ -1,5 +1,50 @@
 # Changelog
 
+## v0.2.0 - 08/06/2026
+
+### Features
+- `rust-packages` — bundled Cargo pipeline: `preflight` (fmt / clippy / test on Linux, macOS, Windows), `security-gate`, branch-time `package`, tag-driven `publish` to crates.io, and the advisory `security` scan. Publish uses OIDC Trusted Publishing (`CARGO_REGISTRY_TOKEN` bootstraps a new crate) and re-runs fmt / clippy / test + `cargo publish`'s verify build on the tagged commit.
+- `rust-packages` — opt-in binary distribution via cargo-dist `0.32.0`, gated on `[package.metadata.dist]`: prebuilt per-target archives, shell / powershell installers, a Homebrew formula in the declared `tap`, and an npm shim, attached to the GitHub Release (draft → undraft). Library crates self-skip. Optional `HOMEBREW_TAP_TOKEN` / `NPM_PACKAGE_REGISTRY_TOKEN` activate the tap and npm publishes.
+- `rust-packages` — host native/C++ CLIs: the `dist-build` matrix exports `CARGO_DIST_TARGET` to the consumer's `ci/setup.sh`, which provisions the cross-toolchain per target. Host preflight runs unchanged.
+- `rust-packages` — branch-time `package` job (`cargo package --locked`) verify-builds the packaged crate, so a dropped compile-time asset (`include_str!` / `build.rs` input) fails the PR, not the tagged publish.
+- `security-gate` — blocking pre-release gate in its own reusable workflow that each `publish` `needs:`: `supply-chain` (cargo-deny for Rust, osv-scanner otherwise) + `secret-scan` (gitleaks). A vulnerability or leaked secret blocks the release through the job graph, unbypassable. Parity with the GitLab `security-gate` stage; the advisory `security.yml` reports in parallel.
+- `rust/base`, `rust/native-deps`, `rust/test-deps` — composites. `rust/base` installs the toolchain, caches cargo + target, runs the optional `ci/setup.sh` and `ci/test-setup.sh` hooks (`ci/test.env` → job env), lints, and tests — so fixture-gated tests fail loud instead of skipping.
+- `javascript/base` — wrap `pnpm install` in Socket Firewall (`sfw`), fail-closed, blocking confirmed-malicious packages before download.
+- `self-release` — move the rolling `v0` tag to each stable release, so `@v0` tracks the latest without a manual push.
+
+### Fixes
+- `rust-packages` — gate `publish` on `dist-build` so a failed binary build never publishes; a library crate (no `dist-build`) still does. Serialize a repo's releases with a `concurrency` group, and rebase-retry the Homebrew tap push.
+- `rust-packages` — pin the `dist-*` checkouts to the tag commit, not the moving `main`; `verify-tag` stays on `publish`, the only job pushing back to `main`.
+- `rust-packages` — `dist-plan` reads `[package.metadata.dist]` or `[workspace.metadata.dist]`, so a cargo-dist 0.32 workspace layout isn't misread as a library crate.
+- `rust-packages` — guard `cargo publish` with a dirty-file allowlist (`Cargo.toml` / `Cargo.lock` / `CHANGELOG.md`); an unexpected dirty file fails the release instead of shipping under `--allow-dirty`.
+- `rust-packages` — `--provenance` on both npm-shim publish paths.
+- `rust/base` — install the `rust-toolchain.toml` channel explicitly with `rustfmt` + `clippy`.
+- `javascript-npm-packages` — gate `publish` on `security-gate` (osv-scanner + gitleaks); a vulnerability or leaked secret now blocks the npm release.
+- `javascript-npm-packages` — add the per-ref `concurrency` group, so two tags can't race the commit-back to `main`.
+- `release` — drop the "move rolling major tag" step from publish; reusable workflows run in the caller's context, so it force-pushed a meaningless `vN` into every consumer. `v0` now moves via `self-release`.
+
+### Refactor
+- `security` — split the blocking scans into `security-gate.yml` and keep `security.yml` advisory, so the gate scans run once (`publish` `needs:` one `security-gate` job). Supply-chain auto-routes by ecosystem; `licenses` moves to advisory (`continue-on-error`) — compliance, not a release blocker — matching GitLab.
+- `security` — extract gitleaks, osv-scanner, and cargo-deny into `security/*` composites, reused by both workflows and self-CI. osv scans only when a supported manifest exists; `security/rust/cargo-deny` imposes the canonical `deny.toml` via `--config` (consumer `deny.toml` ignored, `deny.exceptions.toml` rejected) and takes a `checks` input (`advisories bans sources` for the gate, `licenses` for the advisory layer).
+- `release/*`, `rust/pin-version` — extract the commit-back, tag-verify, and version-pin blocks duplicated across the tag-time jobs into composites.
+- `rust/install-dist` — composite installing cargo-dist's `dist` from the prebuilt, SHA-256-verified tarball (Linux/macOS/Windows), replacing a multi-minute from-source `cargo install`.
+- `rust/pin-version` — install only the `cargo-set-version` binary, not all of cargo-edit (~75% less build).
+- `security/rust/cargo-deny` — drop the redundant `--deny unmaintained --deny unsound` flags; the imposed `deny.toml` already errors on both.
+
+### Performance
+- `rust/base`, `dist-build` — replace the hand-rolled cache with `Swatinem/rust-cache` (`v2.9.1`): keeps `-sys` / CMake dirs, forces `CARGO_INCREMENTAL=0`. `dist-build` keys per target triple; `rust/base` writes only from the default branch.
+
+### Tests
+- `self-actions` — new self-CI exercising the composites on every PR via local refs: `release/verify-tag`, `release/generate-changelog`, `release/commit-artifacts`, `security/rust/cargo-deny` override-reject, `rust/install-dist` on three OSes, and the `rust/native-deps` / `rust/test-deps` hooks. Tag-driven paths reading the runner's `GITHUB_REF_NAME` / `GITHUB_SHA` stay validated at real release time.
+
+### Documentation
+- `README`, `CLAUDE.md` — document the native-CLI contract (`ci/setup.sh` target-aware, `ci/test.env`, `ci/test-setup.sh`), the `deny.toml` advisory escape-hatch, the Rust and npm supply-chain controls, publish auth, and the binary-distribution consumer contract (cargo-dist 0.32 workspace keys + `allow-dirty = ["ci"]`, tap/npm secrets).
+- `SECURITY.md` — add the security policy (vulnerability reporting, 30-day disclosure default).
+
+### Configuration
+- `package.json` — bump to `0.2.0`.
+- `renovate.json` + `renovate.yml` — self-hosted Renovate auto-bumps the version-pinned tooling via review-gated PRs; a `postUpgradeTask` re-syncs each tarball SHA-256 in the same PR so version and checksum never drift.
+
 ## v0.1.14 - 01/06/2026
 
 ### Fixes

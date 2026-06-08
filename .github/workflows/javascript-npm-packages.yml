@@ -18,6 +18,12 @@ on:
 permissions:
   contents: read
 
+# Tags serialize per repo so one release's commit-back can't race another's; branches key
+# per ref and cancel superseded runs, never an in-flight release.
+concurrency:
+  group: release-${{ github.ref_type == 'tag' && github.repository || github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
 env:
   NPM_CONFIG_FILE: ${{ secrets.NPM_CONFIG_FILE }}
   NPM_EXTRA_CONFIG: ${{ secrets.NPM_EXTRA_CONFIG }}
@@ -34,8 +40,12 @@ jobs:
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/javascript/base@v0
 
+  security-gate:
+    uses: ./.github/workflows/security-gate.yml
+
   publish:
     if: ${{ github.ref_type == 'tag' }}
+    needs: [security-gate]   # no release ships until the security gate passes
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main
@@ -46,16 +56,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Verify tag points to main HEAD
-        shell: bash
-        run: |
-          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
-            echo "::error::main has moved since the tag was pushed. Resolve manually."
-            echo "  Tag SHA:    ${GITHUB_SHA}"
-            echo "  main HEAD:  $(git rev-parse HEAD)"
-            exit 1
-          fi
-          echo "main HEAD matches tag SHA (${GITHUB_SHA})"
+      - uses: coroboros/ci/.github/actions/release/verify-tag@v0
 
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/javascript/base@v0
@@ -71,7 +72,7 @@ jobs:
         shell: bash
         run: |
           if [ -n "${NPM_PACKAGE_REGISTRY_TOKEN}" ]; then
-            echo "Publishing with NPM_PACKAGE_REGISTRY_TOKEN auth via npm CLI"
+            echo "::notice::Publishing with NPM_PACKAGE_REGISTRY_TOKEN auth via npm CLI"
             # The pre-Trusted-Publisher bootstrap path can't reliably use
             # pnpm 11.x (auto-OIDC, no fallback to .npmrc token) or pnpm
             # 10.33.0 (corepack intercepts every `pnpm`; the standalone
@@ -84,7 +85,7 @@ jobs:
             npm --version
             npm publish --ignore-scripts --access public
           else
-            echo "Publishing with OIDC Trusted Publisher + provenance"
+            echo "::notice::Publishing with OIDC Trusted Publisher + provenance"
             pnpm publish --provenance --no-git-checks --ignore-scripts
           fi
 
@@ -92,28 +93,9 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.body }}
 
-      - name: Commit release artifacts back to main
-        shell: bash
-        run: |
-          git add CHANGELOG.md package.json pnpm-lock.yaml
-          if git diff --staged --quiet; then
-            echo "::notice::No release artifacts to commit (nothing changed)"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "chore: release ${GITHUB_REF_NAME}"
-            git push origin HEAD:main
-          fi
-
-      - name: Move rolling major tag
-        if: ${{ !contains(github.ref_name, '-') }}
-        shell: bash
-        run: |
-          major="$(echo "${GITHUB_REF_NAME}" | cut -d. -f1)"
-          rolling="v${major}"
-          git tag -f "${rolling}" HEAD
-          git push -f origin "${rolling}"
-          echo "::notice::Moved rolling tag ${rolling} to $(git rev-parse HEAD)"
+      - uses: coroboros/ci/.github/actions/release/commit-artifacts@v0
+        with:
+          files: CHANGELOG.md package.json pnpm-lock.yaml
 
   security:
     uses: ./.github/workflows/security.yml

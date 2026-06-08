@@ -1,0 +1,28 @@
+# Release Commit Artifacts Action Composite
+name: release-commit-artifacts
+description: Commit release artifacts back to main after a tagged publish.
+
+inputs:
+  files:
+    description: Space-separated artifact paths to stage and commit.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Commit release artifacts back to main
+      shell: bash
+      env:
+        FILES: ${{ inputs.files }}
+      # [skip ci] keeps the bot's main push from re-triggering the pipeline.
+      run: |
+        read -ra paths <<< "${FILES}"
+        git add "${paths[@]}"
+        if git diff --staged --quiet; then
+          echo "::notice::No release artifacts to commit (nothing changed)"
+        else
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: release ${GITHUB_REF_NAME} [skip ci]"
+          git push origin HEAD:main
+        fi

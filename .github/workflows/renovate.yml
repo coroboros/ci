@@ -1,0 +1,27 @@
+# Renovate
+name: Renovate
+
+# Self-hosted Renovate bumps the version-pinned tooling and re-syncs each paired
+# tarball SHA-256 in the same PR (postUpgradeTask). The RENOVATE_TOKEN PAT is
+# required so its PRs trigger the rest of self-CI, which GITHUB_TOKEN can't. Scope
+# in CLAUDE.md.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: renovatebot/github-action@693b9ef15eec82123529a37c782242f091365961  # v46.1.14
+        with:
+          token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          RENOVATE_REPOSITORIES: '["coroboros/ci"]'
+          # Gate the SHA-resync postUpgradeTask; the regex must match the exact resolved command.
+          RENOVATE_ALLOWED_COMMANDS: '["^bash \\.github/renovate/sync-tool-sha\\.sh$"]'
+          LOG_LEVEL: "info"

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":semanticCommitTypeAll(chore)",
+    ":dependencyDashboard",
+    ":separateMajorReleases"
+  ],
+  "labels": ["renovate"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rangeStrategy": "bump",
+  "enabledManagers": ["custom.regex"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)\\.github/workflows/self\\.yml$/"],
+      "matchStrings": ["ACTIONLINT_VERSION:\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "rhysd/actionlint",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)\\.github/workflows/self\\.yml$/"],
+      "matchStrings": ["YAMLLINT_VERSION:\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "yamllint",
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)\\.github/actions/security/gitleaks/action\\.yml$/"],
+      "matchStrings": ["GITLEAKS_VERSION:\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "gitleaks/gitleaks",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)\\.github/actions/rust/install-dist/action\\.yml$/"],
+      "matchStrings": ["CARGO_DIST_VERSION:\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "axodotdev/cargo-dist",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)\\.github/actions/rust/pin-version/action\\.yml$/"],
+      "matchStrings": ["CARGO_EDIT_VERSION:\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "cargo-edit",
+      "datasourceTemplate": "crate"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Review-gate every update; nothing automerges.",
+      "matchUpdateTypes": ["minor", "patch", "major", "pin", "digest"],
+      "automerge": false
+    },
+    {
+      "description": "These tools carry a paired tarball SHA-256; a postUpgradeTask re-syncs every *_SHA256 to the bumped version so version + checksum land in the same PR. Self-hosted only — the command is allowlisted via RENOVATE_ALLOWED_COMMANDS in renovate.yml.",
+      "matchDepNames": ["rhysd/actionlint", "gitleaks/gitleaks", "axodotdev/cargo-dist"],
+      "postUpgradeTasks": {
+        "commands": ["bash .github/renovate/sync-tool-sha.sh"],
+        "fileFilters": [
+          ".github/actions/security/gitleaks/action.yml",
+          ".github/workflows/self.yml",
+          ".github/actions/rust/install-dist/action.yml"
+        ],
+        "executionMode": "branch"
+      }
+    }
+  ]
+}

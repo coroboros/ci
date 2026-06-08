@@ -1,0 +1,222 @@
+# Self-CI Actions
+name: Self-CI Actions
+
+# A PR self-tests its composites via local `./` refs against the real checkout
+# (GITHUB_SHA == HEAD); `commit-artifacts` pushes to a local bare remote, with
+# `contents: read` as the backstop, so no real branch is touched. No secrets.
+# Tag-driven paths can't be faked here — the runner re-injects GITHUB_REF_NAME /
+# GITHUB_SHA inside a composite — so generate-changelog and pin-version stay
+# validated at real release time.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Pass — HEAD matches the run SHA
+        uses: ./.github/actions/release/verify-tag
+      - name: Move HEAD so it diverges from the run SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.email "ci@ci"; git config user.name "ci"; git config commit.gpgsign false
+          git commit -q --allow-empty -m "smoke: move HEAD"
+      - name: Fail — HEAD no longer matches
+        id: moved
+        continue-on-error: true
+        uses: ./.github/actions/release/verify-tag
+      - name: Assert the moved branch failed
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${{ steps.moved.outcome }}" = "failure" ] || { echo "::error::verify-tag must fail when HEAD != GITHUB_SHA"; exit 1; }
+          echo "::notice::verify-tag passes on match, fails on divergence"
+
+  generate-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: SemVer gate rejects a non-tag ref
+        id: gate
+        continue-on-error: true
+        uses: ./.github/actions/release/generate-changelog
+      - name: Assert the gate rejected it
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${{ steps.gate.outcome }}" = "failure" ] || { echo "::error::SemVer gate must reject the non-SemVer ref '${GITHUB_REF_NAME}'"; exit 1; }
+          echo "::notice::generate-changelog SemVer gate rejects non-tag refs"
+
+  commit-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Build a fixture repo + local bare remote
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Throwaway non-shallow repo at the workspace root, where the composite's run executes.
+          # The PR's own checkout is shallow (push rejected) and lives under _src. GITHUB_REF_NAME
+          # is the real ref here — it only lands in the commit subject, asserted loosely below.
+          remote="${RUNNER_TEMP}/origin.git"; git init -q --bare "${remote}"
+          git init -q -b main
+          git config user.email "ci@ci"; git config user.name "ci"; git config commit.gpgsign false
+          git remote add origin "${remote}"
+          git commit -q --allow-empty -m base
+          git push -q origin HEAD:refs/heads/main
+          printf 'a\n' > art1.txt; printf 'b\n' > art2.txt
+          echo "REMOTE=${remote}" >> "${GITHUB_ENV}"
+      - name: Changed → commit + push (FILES word-split)
+        uses: ./_src/.github/actions/release/commit-artifacts
+        with:
+          files: art1.txt art2.txt
+      - name: Assert the remote advanced with both files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git --git-dir="${REMOTE}" log -1 --pretty=%s main | grep -qE '^chore: release .+ \[skip ci\]$' \
+            || { echo "::error::commit-artifacts subject malformed"; exit 1; }
+          tree="$(git --git-dir="${REMOTE}" ls-tree --name-only main)"
+          grep -qx 'art1.txt' <<<"${tree}" || { echo "::error::art1.txt missing from pushed tree"; exit 1; }
+          grep -qx 'art2.txt' <<<"${tree}" || { echo "::error::art2.txt missing from pushed tree (FILES word-split)"; exit 1; }
+          echo "BEFORE=$(git --git-dir="${REMOTE}" rev-parse main)" >> "${GITHUB_ENV}"
+          echo "::notice::commit-artifacts pushed both artifacts"
+      - name: Nothing changed → no-op
+        uses: ./_src/.github/actions/release/commit-artifacts
+        with:
+          files: art1.txt
+      - name: Assert the no-op left the remote untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${BEFORE}" = "$(git --git-dir="${REMOTE}" rev-parse main)" ] \
+            || { echo "::error::no-op branch pushed unexpectedly"; exit 1; }
+          echo "::notice::commit-artifacts no-op left main untouched"
+
+  cargo-deny-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Plant a forbidden consumer override
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > deny.exceptions.toml
+      - name: Composite must reject deny.exceptions.toml
+        id: reject
+        continue-on-error: true
+        uses: ./.github/actions/security/rust/cargo-deny
+      - name: Assert the reject guard fired
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${{ steps.reject.outcome }}" = "failure" ] || { echo "::error::cargo-deny must reject a consumer deny.exceptions.toml"; exit 1; }
+          echo "::notice::cargo-deny rejects consumer deny.exceptions.toml"
+
+  install-dist:
+    # cargo-dist packages the Windows zip flat (dist.exe at root) but the Linux/macOS
+    # tarballs nested — extraction differs per OS, so the smoke covers all three.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: ./.github/actions/rust/install-dist
+      - name: Assert dist is installed and runnable
+        shell: bash
+        run: |
+          set -euo pipefail
+          dist --version || { echo "::error::dist not on PATH after install-dist"; exit 1; }
+          echo "::notice::install-dist OK — $(dist --version)"
+
+  native-deps-target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Plant a fixture ci/setup.sh that records CARGO_DIST_TARGET
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci
+          cat > ci/setup.sh <<'SH'
+          #!/usr/bin/env bash
+          echo "${CARGO_DIST_TARGET-}" > seen-target.txt
+          SH
+      - name: Host preflight — CARGO_DIST_TARGET unset
+        uses: ./.github/actions/rust/native-deps
+      - name: Assert the host hook ran and saw an empty target
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -f seen-target.txt ] || { echo "::error::ci/setup.sh did not run on host preflight"; exit 1; }
+          [ -z "$(cat seen-target.txt)" ] || { echo "::error::CARGO_DIST_TARGET must be empty on host preflight"; exit 1; }
+      - name: Export the target the way dist-build does
+        shell: bash
+        run: echo "CARGO_DIST_TARGET=aarch64-unknown-linux-gnu" >> "${GITHUB_ENV}"
+      - name: Cross leg — CARGO_DIST_TARGET exported
+        uses: ./.github/actions/rust/native-deps
+      - name: Assert the hook saw the exported target
+        shell: bash
+        run: |
+          set -euo pipefail
+          got="$(cat seen-target.txt)"
+          [ "${got}" = "aarch64-unknown-linux-gnu" ] || { echo "::error::ci/setup.sh saw '${got}', expected the exported target"; exit 1; }
+          echo "::notice::native-deps passes CARGO_DIST_TARGET through to ci/setup.sh"
+
+  test-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Absent hooks → no-op
+        uses: ./.github/actions/rust/test-deps
+      - name: Plant ci/test.env and ci/test-setup.sh
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci
+          printf 'FOO=1\n' > ci/test.env
+          cat > ci/test-setup.sh <<'SH'
+          #!/usr/bin/env bash
+          touch test-setup-ran
+          SH
+      - name: Run the test hooks
+        uses: ./.github/actions/rust/test-deps
+      - name: Assert fixtures ran and test.env propagated
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -f test-setup-ran ] || { echo "::error::ci/test-setup.sh did not run"; exit 1; }
+          [ "${FOO:-}" = "1" ] || { echo "::error::ci/test.env did not propagate FOO to the job env"; exit 1; }
+          echo "::notice::test-deps runs test-setup.sh and propagates test.env"
+
+  javascript-base:
+    runs-on: ubuntu-latest
+    env:
+      NPM_CONFIG_FILE: "registry=https://registry.npmjs.org/"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Stage the npm fixture at the workspace root
+        shell: bash
+        run: cp -a _src/test/fixtures/npm-package/. .
+      - uses: ./_src/.github/actions/javascript/base
+      - name: Assert install, lint, build, and test ran
+        shell: bash
+        run: |
+          set -euo pipefail
+          for m in lint-ran build-ran test-ran; do
+            [ -f "${m}" ] || { echo "::error::javascript/base did not run ${m%-ran}"; exit 1; }
+          done
+          echo "::notice::javascript/base ran install (sfw + frozen lockfile), lint, build, test on the fixture"
