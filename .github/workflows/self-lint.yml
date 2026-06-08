@@ -1,5 +1,5 @@
-# Self-CI
-name: Self-CI
+# Self-CI Lint
+name: Self-CI Lint
 
 on:
   push:

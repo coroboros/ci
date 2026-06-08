@@ -10,7 +10,7 @@
 Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose around the composite actions under `.github/actions/`.
 
 [![latest](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&label=latest&color=000000)](https://github.com/coroboros/ci/releases)
-[![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/self.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/self.yml)
+[![ci](https://img.shields.io/github/checks-status/coroboros/ci/main?style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions)
 [![branch](https://img.shields.io/badge/branch-main-000000?style=flat-square)](https://github.com/coroboros/ci)
 [![license](https://img.shields.io/badge/license-All%20Rights%20Reserved-000000?style=flat-square)](LICENSE.md)
 [![stars](https://img.shields.io/github/stars/coroboros/ci?style=flat-square&label=stars&color=000000)](https://github.com/coroboros/ci)
@@ -25,6 +25,7 @@ Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<nam
 - [Pipelines](#pipelines)
 - [Composable actions](#composable-actions)
 - [Development flow](#development-flow)
+- [Self-CI](#self-ci)
 - [Environment](#environment)
 - [Security](#security)
 - [Examples](#examples)
@@ -300,6 +301,19 @@ Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-cu
 
 ---
 
+## Self-CI
+
+`coroboros/ci` runs a CI on itself — lint, security, and the `v0` release move — plus a test layer that exercises its own composite actions, which are the product:
+
+- **Lint** (`self-lint.yml`) — `actionlint`, `yamllint`, `shellcheck`.
+- **Security** (`self-security.yml`) — the `gitleaks` / `osv-scanner` composites and the `security-gate` / `security` workflows, via local `./` refs.
+- **Release** (`self-release.yml`) — moves the rolling `v0` tag onto each stable release.
+- **Test** (`self-test.yml`) — smoke every composite (`release/*`, `rust/*`, `security/*`) against the real checkout, and run `javascript/base` + `rust/base` end-to-end on a `test/fixtures/` package and crate.
+
+A workflow self-test resolves its composites at the released `@v0`, so a brand-new composite is testable through a workflow only once a release moves `v0` onto it.
+
+---
+
 ## Environment
 
 Zero `inputs:` — configuration flows through the caller's `secrets:` block. Every value is a **secret** (encrypted at rest, masked in logs), never a GitHub `var`.
@@ -311,9 +325,9 @@ Zero `inputs:` — configuration flows through the caller's `secrets:` block. Ev
 
 | name | required | description |
 | :--- | :---: | :--- |
-| `NPM_CONFIG_FILE` | ✔ | `.npmrc` content. Written to repo root by `javascript/base`. `${VAR}` references inside are expanded by npm at install time. |
+| `NPM_CONFIG_FILE` | yes | `.npmrc` content. Written to repo root by `javascript/base`. `${VAR}` references inside are expanded by npm at install time. |
 | `NPM_EXTRA_CONFIG` |  | Extra `.npmrc` lines appended after `NPM_CONFIG_FILE`. A **secret** — it lands in `.npmrc`, so it can carry auth material and must stay masked. |
-| `NPM_PACKAGE_REGISTRY` | ✔ | npm package registry URL. |
+| `NPM_PACKAGE_REGISTRY` | yes | npm package registry URL. |
 | `NPM_PACKAGE_PROXY_REGISTRY` |  | Optional npm proxy registry URL. |
 | `NPM_PACKAGE_REGISTRY_TOKEN` |  | npm Granular Access Token, scoped to the publishing organization with create-new-package permission. Required only for the token bootstrap (first publish of a new scoped package, before npm Trusted Publisher is bound). Absent → OIDC. |
 

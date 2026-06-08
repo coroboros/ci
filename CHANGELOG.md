@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.1 - 08/06/2026
+
+### Refactor
+- `self.yml` → `self-lint`, `self-actions` → `self-test` — align the self-CI workflow names (`self-lint` · `self-test` · `self-security` · `self-release`).
+
+### Tests
+- `self-test` — self-test `rust/base` end-to-end on a Rust fixture crate (`test/fixtures/rust-crate`): stage it at the workspace root, run the composite, assert `fmt` / `clippy` / `test` pass.
+- `self-security` — self-test the `security-gate.yml` and `security.yml` reusable workflows via local `./` refs, now that `v0` carries the security composites.
+
+### Documentation
+- `README` — add a Self-CI section documenting how the repo tests its own workflows and composites.
+
+### Configuration
+- `.gitignore` — add `target/` for Rust build artifacts.
+
 ## v0.2.0 - 08/06/2026
 
 ### Features
