@@ -64,13 +64,16 @@ The GitHub-Actions sibling of [`coroboros/ci` on GitLab](https://gitlab.com/coro
 
 ## Pipelines
 
-Two bundled pipelines, tag-driven release. Jobs run in parallel; `publish` is tag-only and `needs:` the [security gate](#security-gateyml). Pin `@v0` (rolling major — tracks the latest release) or `@x.y.z` (the workflow file; nested composites still follow `@v0`).
+Pin `@v0` (rolling major, tracks the latest release) or `@x.y.z` (the workflow file; nested composites still follow `@v0`).
 
 ### `javascript-npm-packages.yml`
 
-Jobs: `preflight` · `security-gate` · `publish` (tag) · `security`.
+**Requirements**
+- Files — `.node-version`, `package.json`, `pnpm-lock.yaml`, `README.md`.
+- `package.json` — `packageManager: "pnpm@X.Y.Z"` (pnpm is the only supported manager, run via corepack), `scripts.lint`, `scripts.test`; `scripts.build` optional.
+- Secrets — see [Environment](#environment).
 
-**Requirements** — `.node-version`, `package.json` (`packageManager`, `scripts.lint`, `scripts.test`; `scripts.build` optional), `pnpm-lock.yaml`, `README.md`, and the [secrets](#environment) for npm publish.
+**Jobs**
 
 <details>
 <summary><em>preflight</em></summary>
@@ -127,13 +130,13 @@ Calls the advisory [`security.yml`](#securityyml). Reports, never blocks.
 
 ### `rust-packages.yml`
 
-Jobs: `preflight` · `security-gate` · `package` · `publish` (tag) · `binary distribution` (opt-in) · `security`.
-
 **Requirements**
-- `rust-toolchain.toml`, `Cargo.toml`, committed `Cargo.lock`, `README.md`.
-- Compile-time assets (`include_str!`, `build.rs` inputs) stay in the package — the `package` job verify-builds it.
-- Optional hooks: `ci/setup.sh` (native build deps), `ci/test.env` + `ci/test-setup.sh` (test fixtures).
-- [Secrets](#environment) for crates.io publish (optional). Binary distribution is opt-in — see below. The cargo-deny policy is imposed, no consumer config — see [Security](#security).
+- Files — `rust-toolchain.toml`, `Cargo.toml`, committed `Cargo.lock`, `README.md`.
+- Compile-time assets (`include_str!`, `build.rs` inputs) must stay in the package — the `package` job verify-builds it.
+- Optional hooks — `ci/setup.sh` (native build deps), `ci/test.env` + `ci/test-setup.sh` (test fixtures).
+- Secrets — see [Environment](#environment), all optional. Binary distribution is opt-in (below); the cargo-deny policy is imposed, no consumer config (see [Security](#security)).
+
+**Jobs**
 
 <details>
 <summary><em>preflight</em></summary>
@@ -299,10 +302,10 @@ Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-cu
 
 ## Environment
 
-Zero `inputs:` — configuration flows through the caller's `secrets:` block. Every npm-publish-related value is a **secret** (encrypted at rest, masked in logs); none are GitHub `vars`.
+Zero `inputs:` — configuration flows through the caller's `secrets:` block. Every value is a **secret** (encrypted at rest, masked in logs), never a GitHub `var`.
 
 <details>
-<summary><em>Secrets (caller's <code>secrets:</code> block)</em></summary>
+<summary><em>Secrets — <code>javascript-npm-packages.yml</code></em></summary>
 
 <br>
 
@@ -365,7 +368,7 @@ minimumReleaseAgeExclude:
 </details>
 
 <details>
-<summary><em>Supply chain — Rust (<code>rust-packages.yml</code>)</em></summary>
+<summary><em>Supply chain — Rust</em></summary>
 
 <br>
 

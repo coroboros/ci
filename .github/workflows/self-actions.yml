@@ -201,9 +201,6 @@ jobs:
           echo "::notice::test-deps runs test-setup.sh and propagates test.env"
 
   javascript-base:
-    # javascript/base is self-contained (no @v0 sub-composites), so it runs end-to-end against a
-    # real fixture. rust/base and the security-gate workflow reference @v0 composites that don't
-    # exist until this release moves v0 — they can't be self-tested pre-release.
     runs-on: ubuntu-latest
     env:
       NPM_CONFIG_FILE: "registry=https://registry.npmjs.org/"
