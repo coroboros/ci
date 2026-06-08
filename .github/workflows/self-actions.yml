@@ -220,3 +220,17 @@ jobs:
             [ -f "${m}" ] || { echo "::error::javascript/base did not run ${m%-ran}"; exit 1; }
           done
           echo "::notice::javascript/base ran install (sfw + frozen lockfile), lint, build, test on the fixture"
+
+  rust-base:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: _src
+      - name: Stage the rust fixture at the workspace root
+        shell: bash
+        run: cp -a _src/test/fixtures/rust-crate/. .
+      - uses: ./_src/.github/actions/rust/base
+      - name: Confirm rust/base completed the gates
+        shell: bash
+        run: echo "::notice::rust/base ran fmt --check, clippy -D warnings, and test on the fixture"

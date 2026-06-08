@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.1 - 08/06/2026
+
+### Tests
+- `self-actions` — self-test `rust/base` end-to-end on a Rust fixture crate (`test/fixtures/rust-crate`): stage it at the workspace root, run the composite, assert `fmt` / `clippy` / `test` pass.
+- `self-security` — self-test the `security-gate.yml` and `security.yml` reusable workflows via local `./` refs, now that `v0` carries the security composites.
+
+### Configuration
+- `.gitignore` — add `target/` for Rust build artifacts.
+
 ## v0.2.0 - 08/06/2026
 
 ### Features

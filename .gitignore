@@ -3,6 +3,7 @@
 .claude/output/
 CLAUDE.local.md
 node_modules/
+target/
 *.log
 *.bak
 .actionlint-cache/
