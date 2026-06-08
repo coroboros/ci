@@ -6,7 +6,7 @@
 set -euo pipefail
 
 GITLEAKS_YML=".github/actions/security/gitleaks/action.yml"
-SELF_YML=".github/workflows/self.yml"
+SELF_YML=".github/workflows/self-lint.yml"
 DIST_YML=".github/actions/rust/install-dist/action.yml"
 
 sha256_of() {

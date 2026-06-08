@@ -10,7 +10,7 @@
 Drop into any `@coroboros/*` repo via `uses: coroboros/ci/.github/workflows/<name>.yml@v0`, or compose around the composite actions under `.github/actions/`.
 
 [![latest](https://img.shields.io/github/v/release/coroboros/ci?style=flat-square&label=latest&color=000000)](https://github.com/coroboros/ci/releases)
-[![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/self.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/self.yml)
+[![ci](https://img.shields.io/github/actions/workflow/status/coroboros/ci/self-lint.yml?branch=main&style=flat-square&label=ci&color=000000)](https://github.com/coroboros/ci/actions/workflows/self-lint.yml)
 [![branch](https://img.shields.io/badge/branch-main-000000?style=flat-square)](https://github.com/coroboros/ci)
 [![license](https://img.shields.io/badge/license-All%20Rights%20Reserved-000000?style=flat-square)](LICENSE.md)
 [![stars](https://img.shields.io/github/stars/coroboros/ci?style=flat-square&label=stars&color=000000)](https://github.com/coroboros/ci)
@@ -305,8 +305,8 @@ Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-cu
 
 The workflows and composites are the product, so every PR runs them against this repo:
 
-- **Lint** (`self.yml`) — `actionlint` + shellcheck, `yamllint`.
-- **Composites** (`self-actions.yml`) — smoke every composite (`release/*`, `rust/*`, `security/*`) against the real checkout, and run `javascript/base` + `rust/base` end-to-end on a `test/fixtures/` package and crate.
+- **Lint** (`self-lint.yml`) — `actionlint` + shellcheck, `yamllint`.
+- **Composites** (`self-test.yml`) — smoke every composite (`release/*`, `rust/*`, `security/*`) against the real checkout, and run `javascript/base` + `rust/base` end-to-end on a `test/fixtures/` package and crate.
 - **Security** (`self-security.yml`) — the `gitleaks` / `osv-scanner` composites and the `security-gate` / `security` workflows, via local `./` refs.
 - **Release** (`self-release.yml`) — moves the rolling `v0` tag onto each stable release.
 

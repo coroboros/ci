@@ -1,5 +1,5 @@
-# Self-CI Actions
-name: Self-CI Actions
+# Self-CI Test
+name: Self-CI Test
 
 # A PR self-tests its composites via local `./` refs against the real checkout
 # (GITHUB_SHA == HEAD); `commit-artifacts` pushes to a local bare remote, with

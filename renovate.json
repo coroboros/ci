@@ -65,7 +65,7 @@
         "commands": ["bash .github/renovate/sync-tool-sha.sh"],
         "fileFilters": [
           ".github/actions/security/gitleaks/action.yml",
-          ".github/workflows/self.yml",
+          ".github/workflows/self-lint.yml",
           ".github/actions/rust/install-dist/action.yml"
         ],
         "executionMode": "branch"
