@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.0 - 06/06/2026
+## v0.2.0 - 08/06/2026
 
 ### Features
 - `rust-packages` — bundled Cargo pipeline: `preflight` (fmt / clippy / test on Linux, macOS, Windows), `security-gate`, branch-time `package`, tag-driven `publish` to crates.io, and the advisory `security` scan. Publish uses OIDC Trusted Publishing (`CARGO_REGISTRY_TOKEN` bootstraps a new crate) and re-runs fmt / clippy / test + `cargo publish`'s verify build on the tagged commit.
