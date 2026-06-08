@@ -33,19 +33,8 @@ jobs:
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/rust/base@v0
 
-  supply-chain:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/security/cargo-deny@v0
-
-  secret-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-        with:
-          fetch-depth: 0
-      - uses: coroboros/ci/.github/actions/security/gitleaks@v0
+  security-gate:
+    uses: ./.github/workflows/security-gate.yml
 
   package:
     if: ${{ github.ref_type == 'branch' }}
@@ -112,7 +101,7 @@ jobs:
           if-no-files-found: error
 
   dist-build:
-    needs: [dist-plan, supply-chain, secret-scan]   # no artifact builds until the gates pass
+    needs: [dist-plan, security-gate]   # no artifact builds until the gate passes
     if: ${{ needs.dist-plan.outputs.enabled == 'true' }}
     strategy:
       fail-fast: false
@@ -156,8 +145,8 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: ${{ github.ref_type == 'tag' && !cancelled() && needs.supply-chain.result == 'success' && needs.secret-scan.result == 'success' && needs.dist-plan.result == 'success' && needs.dist-build.result != 'failure' }}
-    needs: [supply-chain, secret-scan, dist-plan, dist-build]   # gates must pass; a failed binary build blocks publish (skipped dist-build = library crate, still publishes)
+    if: ${{ github.ref_type == 'tag' && !cancelled() && needs.security-gate.result == 'success' && needs.dist-plan.result == 'success' && needs.dist-build.result != 'failure' }}
+    needs: [security-gate, dist-plan, dist-build]   # gate must pass; a failed binary build blocks publish (skipped dist-build = library crate, still publishes)
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main

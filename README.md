@@ -59,24 +59,13 @@ Consumer requirements:
 </details>
 
 <details>
-<summary><em>supply-chain</em></summary>
+<summary><em>security-gate</em></summary>
 
 <br>
 
 **Trigger**: `every push`. Gates `publish` via `needs:` — a release waits on it.
 
-`osv-scanner` scans `pnpm-lock.yaml` against [OSV.dev](https://osv.dev/). `javascript/base` already gates the install (Socket Firewall + `--frozen-lockfile`); this adds the known-CVE gate so a vulnerable dependency blocks the release, not just the parallel `security` scan. See [Security](#security).
-
-</details>
-
-<details>
-<summary><em>secret-scan</em></summary>
-
-<br>
-
-**Trigger**: `every push`. Gates `publish` via `needs:` — a release waits on it.
-
-`gitleaks` scans the full git history with the canonical ruleset. The release-gating twin of the parallel `security` scan, so a leaked secret blocks the publish through the template's `needs:` rather than per-repo branch protection. See [Security](#security).
+Calls [`security-gate.yml`](#security-gateyml): `osv-scanner` (`pnpm-lock.yaml` vs [OSV.dev](https://osv.dev/)) + `gitleaks` (full history). `javascript/base` already gates the install (Socket Firewall + `--frozen-lockfile`); the gate adds the known-CVE and leaked-secret blocks so a vulnerable dependency or a leaked secret stops the release through the job graph, not per-repo branch protection. See [Security](#security).
 
 </details>
 
@@ -85,7 +74,7 @@ Consumer requirements:
 
 <br>
 
-**Trigger**: `tag push`. Gated by `supply-chain` and `secret-scan` (`needs:`) — osv-scanner and gitleaks must pass first.
+**Trigger**: `tag push`. Gated by `security-gate` (`needs:`) — osv-scanner and gitleaks must pass first.
 
 **Sequence**:
 1. Checkout `main` with full history
@@ -107,7 +96,7 @@ Consumer requirements:
 
 **Trigger**: `every call`
 
-Calls `security.yml` — see [Security](#security).
+Calls the advisory [`security.yml`](#securityyml) — `dependency-review`, reporting only, never blocks the release. See [Security](#security).
 
 </details>
 
@@ -141,24 +130,13 @@ Consumer requirements:
 </details>
 
 <details>
-<summary><em>supply-chain</em></summary>
+<summary><em>security-gate</em></summary>
 
 <br>
 
 **Trigger**: `every push`. Gates `publish` via `needs:` — a release waits on it.
 
-`cargo-deny check` (SHA-pinned action) applies the canonical imposed `security/deny.toml`: crate sources, licenses, bans, and advisories (vulnerabilities, unmaintained, unsound, yanked). Running on every push re-checks a tagged release against the latest advisory DB before it ships, not only at PR time. See [Security](#security).
-
-</details>
-
-<details>
-<summary><em>secret-scan</em></summary>
-
-<br>
-
-**Trigger**: `every push`. Gates `publish` via `needs:` — a release waits on it.
-
-`gitleaks` scans the full git history with the canonical ruleset. The release-gating twin of the parallel `security` scan, so a leaked secret blocks the publish through the template's `needs:` rather than per-repo branch protection. See [Security](#security).
+Calls [`security-gate.yml`](#security-gateyml): `cargo-deny` (advisories + bans + sources) + `gitleaks` (full history). Running on every push re-checks a tagged release against the latest advisory DB before it ships, not only at PR time. License policy is not here — it runs advisory in `security`. See [Security](#security).
 
 </details>
 
@@ -178,7 +156,7 @@ Consumer requirements:
 
 <br>
 
-**Trigger**: `tag push`. Gated by `supply-chain` and `secret-scan` (`needs:`) — cargo-deny and gitleaks must pass first — and skipped if `dist-build` fails, so a broken binary build never produces a crates.io publish.
+**Trigger**: `tag push`. Gated by `security-gate` (`needs:`) — cargo-deny and gitleaks must pass first — and skipped if `dist-build` fails, so a broken binary build never produces a crates.io publish.
 
 **Sequence**:
 1. Checkout `main` with full history
@@ -203,7 +181,7 @@ Consumer requirements:
 The shared pipeline is the sole release authority — `publish` creates the one GitHub Release (a draft for binary repos), and these jobs attach artifacts to it. cargo-dist (`dist`) only builds, never owns the release.
 
 - **`dist-plan`** — detects the metadata, pins the version, runs `dist plan` to compute the per-target build matrix.
-- **`dist-build`** — matrix over the declared `targets`, gated by `supply-chain` and `secret-scan` (`needs:`); caches `~/.cargo` + `target/` per target via `rust-cache`; builds each prebuilt archive (`dist build --artifacts=local`). Exports `CARGO_DIST_TARGET` so the consumer's `ci/setup.sh` provisions the cross-toolchain.
+- **`dist-build`** — matrix over the declared `targets`, gated by `security-gate` (`needs:`); caches `~/.cargo` + `target/` per target via `rust-cache`; builds each prebuilt archive (`dist build --artifacts=local`). Exports `CARGO_DIST_TARGET` so the consumer's `ci/setup.sh` provisions the cross-toolchain.
 - **`dist-host`** — builds the global installers + Homebrew formula + npm shim (`dist build --artifacts=global`; final download URLs derive from repo + tag), uploads every asset to the release, then undrafts it.
 - **`dist-publish`** — commits the formula to the declared `tap` (`HOMEBREW_TAP_TOKEN`, rebase-retried so concurrent releases don't clobber the shared tap) and publishes the npm shim with provenance (token bootstrap or OIDC, attested via the job's `id-token` either way). Each self-skips when its installer or secret is absent.
 
@@ -216,23 +194,29 @@ The shared pipeline is the sole release authority — `publish` creates the one 
 
 <br>
 
-**Trigger**: `every call`. Calls `security.yml`.
+**Trigger**: `every call`. Calls the advisory [`security.yml`](#securityyml) — `dependency-review` + `licenses`, reporting only, never blocks the release.
 
 </details>
 
+### `security-gate.yml`
+
+The blocking gate, split from the advisory layer so it can be owned as a black box. Two parallel jobs, both fail the release through the caller's `needs:` graph — a dev can't bypass them:
+
+- **`supply-chain`** — auto-routed by ecosystem: a `Cargo.toml` repo runs [`security/rust/cargo-deny`](#composable-actions) (advisories + bans + sources); any other runs [`security/osv-scanner`](#composable-actions). One tool per repo, never both, so a crate isn't vuln-scanned twice. A repo with no supported manifest skips (osv's no-manifest path).
+- **`secret-scan`** — [`security/gitleaks`](#composable-actions), full git history, canonical ruleset.
+
+Imposed on every package pipeline (a `security-gate` job `needs:`-ed by `publish`) and importable directly by a non-package repo. Holds only what *blocks*: a compromised dependency or a leaked secret. License and quality policy live in `security.yml`.
+
 ### `security.yml`
 
-Reusable sub-workflow with three parallel scans:
+The advisory layer — reports, never blocks (parity with GitLab's `allow_failure: true`):
 
-- **`gitleaks`** — Installs `v8.30.1` (SHA-256 verified), scans git history with the [`security/.gitleaks.toml`](security/.gitleaks.toml) ruleset, fails on detected leaks. Emits SARIF as the `gitleaks-report` artifact (30-day retention).
 - **`dependency-review`** — PR-only; needs repo's **Dependency graph** enabled. Fails on high-severity CVE introduced by the dep diff. Uses `actions/dependency-review-action@v4`.
-- **`osv-scanner`** — Scans dependency manifests recursively against [OSV.dev](https://osv.dev/) via `google/osv-scanner-action@v2`, failing on any known vulnerability. Runs only when a supported manifest is present — `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `Cargo.lock`, `go.mod`, `requirements.txt`, `poetry.lock`, `Pipfile.lock`, `pdm.lock`, `uv.lock`, `Gemfile.lock`, `composer.lock`. A repo with none — docs, config — skips the scan rather than failing on osv's no-manifest error. Per-repo exceptions go in an `osv-scanner.toml` at the repo root (`[[IgnoredVulns]]`). Extend the list in the `security/osv-scanner` composite as ecosystems land.
-
-`gitleaks` and `osv-scanner` wrap the [`security/*` composites](#composable-actions) — the same definitions the package `supply-chain` gates reuse; `dependency-review` is inline. Imposed on every Coroboros workflow. Standalone wire-up — see [Examples](#examples).
+- **`licenses`** — Rust-only (`continue-on-error`): [`security/rust/cargo-deny`](#composable-actions) `checks: licenses` against the canonical allow-list. A non-allowed license is surfaced, never blocks the release. Skips a repo with no `Cargo.toml`.
 
 ---
 
-**Notes** — pin via `@v0` (rolling major) or `@x.y.z`. `self-release.yml` moves `v0` to each stable release, so `@v0` always tracks the latest. `@x.y.z` pins the workflow file. The composite actions it calls are hardcoded `@v0`, so `@x.y.z` is not a full freeze — the nested actions still follow `v0`. Jobs run in parallel except each `publish`, which `needs:` the `supply-chain` and secret-scanning gates so the release is re-checked (cargo-deny or osv-scanner, plus gitleaks) before it ships. `security.yml` scans in parallel for reporting — it does not gate `publish` (see [Security](#security)). The only sub-workflow call is `security` → `security.yml`.
+**Notes** — pin via `@v0` (rolling major) or `@x.y.z`. `self-release.yml` moves `v0` to each stable release, so `@v0` always tracks the latest. `@x.y.z` pins the workflow file. The composite actions it calls are hardcoded `@v0`, so `@x.y.z` is not a full freeze — the nested actions still follow `v0`. Each `publish` `needs:` the `security-gate` job, so the release is re-checked (cargo-deny or osv-scanner, plus gitleaks) before it ships. The `security` job scans in parallel for reporting — it does not gate `publish` (see [Security](#security)).
 
 ---
 
@@ -247,9 +231,9 @@ Reusable sub-workflow with three parallel scans:
 | `rust/test-deps` | Rust | Loads the optional `ci/test.env` into the job env and runs the optional `ci/test-setup.sh` fixture hook before `cargo test`. Used by `rust/base`. No-op when absent. |
 | `rust/install-dist` | Rust | Installs cargo-dist's `dist` binary, prebuilt and SHA-256 verified (Linux/macOS/Windows). Shared by the `dist-plan`, `dist-build`, `dist-host` jobs. |
 | `rust/pin-version` | Rust | Installs version-pinned `cargo-set-version` (cargo-edit) and stamps `Cargo.toml` to the release tag. Shared by `publish` and the `dist-*` jobs. |
-| `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. The shared definition behind `security.yml`, the package secret-scanning gate, and self-CI. |
-| `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Shared by `security.yml`, the npm `supply-chain` gate, and self-CI. |
-| `security/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The Rust `supply-chain` gate. |
+| `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. Behind `security-gate.yml`'s `secret-scan` and self-CI. |
+| `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Behind `security-gate.yml`'s `supply-chain` (non-Rust) and self-CI. |
+| `security/rust/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The `checks` input selects which checks run — `advisories bans sources` for the `security-gate.yml` supply-chain, `licenses` for the `security.yml` advisory layer. |
 | `release/verify-tag` | transverse | Fails the release unless the checked-out `main` HEAD matches the tag SHA. Shared by the npm and Rust `publish` jobs — the tag-time jobs that check out `main` to push back; the `dist-*` jobs pin to the tag commit (`github.sha`) instead. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog` (see [Examples](#examples)). |
@@ -422,11 +406,11 @@ The GitLab pipeline hardens npm at the image layer — cooldown, Socket Firewall
 | :--- | :--- |
 | Untrusted source, typosquat | `cargo-deny` sources — crates.io only; git and alternative registries denied |
 | Lock drift, tampered dependencies | committed `Cargo.lock` + `--locked` on `clippy` and `test` — fails on a stale or altered lock |
-| Known vulnerability | `osv-scanner` (Cargo.lock) and `cargo-deny` advisories — RustSec vulnerabilities, unmaintained, unsound, yanked |
-| License drift | `cargo-deny` licenses — allow-list |
+| Known vulnerability | `cargo-deny` advisories — RustSec vulnerabilities, unmaintained, unsound, yanked |
+| License drift | `cargo-deny` licenses — allow-list, **advisory** (reports, never blocks) |
 | Banned or wildcard dependency | `cargo-deny` bans |
 
-`cargo-deny` runs on every push via a SHA-pinned action and gates `publish` (`needs:`), so a tagged release is re-checked against the latest advisory DB before it ships — `security.yml` scans in parallel for reporting and does not block the release. The controls above are **imposed**: it applies the canonical [`security/deny.toml`](security/deny.toml) via `--config`, sparse-checked from `coroboros/ci` — the [`gitleaks`](#composable-actions) model. A consumer `deny.toml` is ignored; a `deny.exceptions.toml` fails the job. Exceptions are changed centrally in `coroboros/ci`, never per repo — an unfixable transitive advisory is suppressed by a PR adding a justified `ignore = ["RUSTSEC-…"]` (with a `# why` comment) to the canonical `deny.toml`.
+`cargo-deny`'s blocking checks (`advisories`, `bans`, `sources`) run in [`security-gate.yml`](#security-gateyml)'s `supply-chain` on every push and gate `publish` (`needs:`), so a tagged release is re-checked against the latest advisory DB before it ships. `licenses` runs advisory in `security.yml` — reported, never blocking, since licenses are compliance rather than a supply-chain risk. The controls above are **imposed**: cargo-deny applies the canonical [`security/deny.toml`](security/deny.toml) via `--config`, sparse-checked from `coroboros/ci` — the [`gitleaks`](#composable-actions) model. A consumer `deny.toml` is ignored; a `deny.exceptions.toml` fails the job. Exceptions are changed centrally in `coroboros/ci`, never per repo — an unfixable transitive advisory is suppressed by a PR adding a justified `ignore = ["RUSTSEC-…"]` (with a `# why` comment) to the canonical `deny.toml`.
 
 **Publish auth.** crates.io publish uses OIDC Trusted Publishing by default — `rust-lang/crates-io-auth-action` mints a short-lived token per run, no long-lived secret in the repo. `CARGO_REGISTRY_TOKEN` is needed only to bootstrap the first publish of a new crate (Trusted Publishing binds to an existing crate); configure Trusted Publishing on crates.io afterwards and drop the token. The verify build runs on publish (no `--no-verify`). It compiles the packaged tarball standalone, catching a crate that only builds in-workspace before the immutable release lands.
 
@@ -459,7 +443,7 @@ prefer-online=true
 | `@coroboros:registry=https:${NPM_PACKAGE_REGISTRY}` | Scope-resolved registry — `${NPM_PACKAGE_REGISTRY}` expands from the same-named secret. |
 | `save-exact=true` | Pin exact versions on `add` / `install`. |
 | `fund=false` | Suppress funding noise in CI logs. |
-| `audit=false` | `osv-scanner` (in `security.yml`) covers vulnerability scans natively. |
+| `audit=false` | `osv-scanner` (in `security-gate.yml`) covers vulnerability scans natively. |
 | `ignore-scripts=true` | Defense in depth against postinstall supply-chain attacks — backs up the `--ignore-scripts` flag already passed by `javascript/base` on every `pnpm install`. |
 | `package-lock=false` | Prevent `npm` from emitting a parasitic `package-lock.json` in pnpm repos. |
 | `lockfile=true` | Explicit `pnpm-lock.yaml` enablement. Required on pnpm `< 11.0.0` consumers, where the preceding `package-lock=false` is interpreted as `lockfile=false` and collides with `pnpm install --frozen-lockfile`. Pnpm `>= 11` already defaults to `true` and ignores `package-lock` for `pnpm-lock.yaml`, so the line is harmless there. |
@@ -595,9 +579,11 @@ jobs:
 </details>
 
 <details>
-<summary><em><code>security.yml</code> standalone (non-npm repo)</em></summary>
+<summary><em>security on a non-package repo</em></summary>
 
 <br>
+
+A repo that ships no package still imports the security workflows directly — the blocking gate plus the advisory layer:
 
 ```yaml
 # consumer-repo/.github/workflows/security.yml
@@ -613,7 +599,9 @@ permissions:
   contents: read
 
 jobs:
-  scan:
+  gate:
+    uses: coroboros/ci/.github/workflows/security-gate.yml@v0
+  advisory:
     uses: coroboros/ci/.github/workflows/security.yml@v0
 ```
 

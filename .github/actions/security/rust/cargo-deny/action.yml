@@ -1,6 +1,12 @@
-# Security cargo-deny Action Composite
-name: security-cargo-deny
-description: Run cargo-deny against the canonical Coroboros ruleset (imposed, no consumer override).
+# Security cargo-deny Action Composite (Rust)
+name: security-rust-cargo-deny
+description: Run cargo-deny against the canonical Coroboros ruleset (imposed, no consumer override). `checks` selects which cargo-deny checks run; empty runs all.
+
+inputs:
+  checks:
+    description: "Space-separated cargo-deny checks to run (e.g. 'advisories bans sources' for the gate, 'licenses' for the advisory layer). Empty runs all."
+    required: false
+    default: ""
 
 # The caller checks out the repo to scan before using this composite.
 runs:
@@ -30,4 +36,4 @@ runs:
     - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe  # v2.0.20
       with:
         command: check
-        command-arguments: "--config .coroboros-ci/security/deny.toml"
+        command-arguments: "--config .coroboros-ci/security/deny.toml ${{ inputs.checks }}"

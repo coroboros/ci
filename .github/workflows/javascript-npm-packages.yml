@@ -40,23 +40,12 @@ jobs:
       - uses: coroboros/ci/.github/actions/check-docs@v0
       - uses: coroboros/ci/.github/actions/javascript/base@v0
 
-  supply-chain:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/security/osv-scanner@v0
-
-  secret-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-        with:
-          fetch-depth: 0
-      - uses: coroboros/ci/.github/actions/security/gitleaks@v0
+  security-gate:
+    uses: ./.github/workflows/security-gate.yml
 
   publish:
     if: ${{ github.ref_type == 'tag' }}
-    needs: [supply-chain, secret-scan]   # no release ships until osv-scanner and gitleaks pass
+    needs: [security-gate]   # no release ships until the security gate passes
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for GitHub Release creation + commit-back to main

@@ -117,7 +117,7 @@ jobs:
       - name: Composite must reject deny.exceptions.toml
         id: reject
         continue-on-error: true
-        uses: ./.github/actions/security/cargo-deny
+        uses: ./.github/actions/security/rust/cargo-deny
       - name: Assert the reject guard fired
         shell: bash
         run: |

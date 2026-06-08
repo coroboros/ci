@@ -8,14 +8,6 @@ permissions:
   contents: read
 
 jobs:
-  gitleaks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-        with:
-          fetch-depth: 0
-      - uses: coroboros/ci/.github/actions/security/gitleaks@v0
-
   dependency-review:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
@@ -26,8 +18,23 @@ jobs:
           fail-on-severity: high
           comment-summary-in-pr: never
 
-  osv-scanner:
+  licenses:
     runs-on: ubuntu-latest
+    # Advisory — reports a non-allowed license, never blocks the release.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: coroboros/ci/.github/actions/security/osv-scanner@v0
+      - id: detect
+        name: Detect a Rust manifest
+        shell: bash
+        run: |
+          if [ -f Cargo.toml ]; then
+            echo "rust=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "::notice::no Cargo.toml — license check skipped (Rust-only)"
+            echo "rust=false" >> "${GITHUB_OUTPUT}"
+          fi
+      - if: ${{ steps.detect.outputs.rust == 'true' }}
+        uses: coroboros/ci/.github/actions/security/rust/cargo-deny@v0
+        with:
+          checks: "licenses"
