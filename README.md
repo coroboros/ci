@@ -305,7 +305,7 @@ Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-cu
 
 `coroboros/ci` runs a CI on itself — lint, security, and the `v0` release move — plus a test layer that exercises its own composite actions, which are the product:
 
-- **Lint** (`self-lint.yml`) — `actionlint` + shellcheck, `yamllint`.
+- **Lint** (`self-lint.yml`) — `actionlint`, `yamllint`, `shellcheck`.
 - **Security** (`self-security.yml`) — the `gitleaks` / `osv-scanner` composites and the `security-gate` / `security` workflows, via local `./` refs.
 - **Release** (`self-release.yml`) — moves the rolling `v0` tag onto each stable release.
 - **Test** (`self-test.yml`) — smoke every composite (`release/*`, `rust/*`, `security/*`) against the real checkout, and run `javascript/base` + `rust/base` end-to-end on a `test/fixtures/` package and crate.
