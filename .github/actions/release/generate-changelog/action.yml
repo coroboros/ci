@@ -1,3 +1,4 @@
+# Release Generate CHANGELOG Action Composite
 name: release-generate-changelog
 description: Generate or reuse a CHANGELOG.md section for the current tag from Conventional Commits.
 

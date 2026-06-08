@@ -1,3 +1,4 @@
+# Rust Native Dependencies Action Composite
 name: rust-native-deps
 description: Run the optional ci/setup.sh native build-dependency hook.
 

@@ -1,3 +1,4 @@
+# Rust Pin Version Action Composite
 name: rust-pin-version
 description: Install cargo-set-version (version-pinned via CARGO_EDIT_VERSION) and stamp Cargo.toml to the release tag.
 

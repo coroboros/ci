@@ -1,3 +1,4 @@
+# Security OSV Scanner Action Composite
 name: security-osv-scanner
 description: Scan dependency manifests for known vulnerabilities (OSV.dev). Skips a repo with none; fails on a known vulnerability.
 
