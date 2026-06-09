@@ -43,7 +43,7 @@ jobs:
   security-gate:
     uses: ./.github/workflows/security-gate.yml
 
-  publish:
+  publish-package:
     if: ${{ github.ref_type == 'tag' }}
     needs: [security-gate]   # no release ships until the security gate passes
     runs-on: ubuntu-latest

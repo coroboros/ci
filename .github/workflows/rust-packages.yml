@@ -36,7 +36,7 @@ jobs:
   security-gate:
     uses: ./.github/workflows/security-gate.yml
 
-  package:
+  verify-package:
     if: ${{ github.ref_type == 'branch' }}
     runs-on: ubuntu-latest
     steps:
@@ -144,7 +144,7 @@ jobs:
           path: target/distrib/
           if-no-files-found: error
 
-  publish:
+  publish-package:
     if: ${{ github.ref_type == 'tag' && !cancelled() && needs.security-gate.result == 'success' && needs.dist-plan.result == 'success' && needs.dist-build.result != 'failure' }}
     needs: [security-gate, dist-plan, dist-build]   # gate must pass; a failed binary build blocks publish (skipped dist-build = library crate, still publishes)
     runs-on: ubuntu-latest
@@ -202,7 +202,7 @@ jobs:
           files: Cargo.toml Cargo.lock CHANGELOG.md
 
   dist-host:
-    needs: [dist-plan, dist-build, publish]
+    needs: [dist-plan, dist-build, publish-package]
     if: ${{ needs.dist-plan.outputs.enabled == 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -335,9 +335,9 @@ jobs:
             echo "::notice::no npm shim generated — skipping"
             exit 0
           fi
-          for pkg in "${shims[@]}"; do
+          for shim in "${shims[@]}"; do
             # Provenance attests via the job's id-token on both auth paths — token bootstrap or OIDC.
-            npm publish --provenance --access public "./${pkg}"
+            npm publish --provenance --access public "./${shim}"
           done
 
   security:
