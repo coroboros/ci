@@ -32,7 +32,7 @@ Reusable GitHub Actions workflows + composite actions for the Coroboros stack.
   - Env values quoted: `KEY: "value"`.
   - GH workflow log commands: `::error::`, `::warning::`, `::notice::`. No ANSI codes.
   - Declare env keys only where consumed.
-  - Job ids: `verb-noun`, kebab-case (imperative verb + object), mirroring the GitLab CI pipelines (`../gitlab-ci/ci`) — `verify-package`, `publish-package`, `generate-changelog`, `commit-artifacts`, `verify-tag`. Phase call-jobs that `uses:` another workflow may stay single-word (`preflight`, `security-gate`, `security`); the cargo-dist `dist-plan`/`dist-build`/`dist-host`/`dist-publish` jobs mirror its subcommands. Reusable-workflow job ids are consumer-visible — rename deliberately.
+  - Job ids: `verb-noun`, kebab-case (imperative verb + object), mirroring the GitLab CI pipelines — `verify-package`, `publish-package`, `generate-changelog`, `commit-artifacts`, `verify-tag`. Phase call-jobs that `uses:` another workflow may stay single-word (`preflight`, `security-gate`, `security`); the cargo-dist `dist-plan`/`dist-build`/`dist-host`/`dist-publish` jobs mirror its subcommands. Reusable-workflow job ids are consumer-visible — rename deliberately.
 - **Action and workflow files = implementation only.** Rationale lives in `CLAUDE.md` or `CHANGELOG.md`.
 
 ## Adding a workflow or composite
