@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.4 - 09/06/2026
+
+### Fixes
+- `rust-packages` — `dist-publish` passes the npm shim tarball as `./${pkg}` so `npm publish` reads it as a file path. A bare `dist-global/…tar.gz` matches npm's `owner/repo` GitHub shorthand, so npm tried to clone it over SSH (`git ls-remote ssh://git@github.com/dist-global/…`, exit 128) instead of publishing the tarball.
+
 ## v0.2.3 - 09/06/2026
 
 ### Fixes

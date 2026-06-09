@@ -337,7 +337,7 @@ jobs:
           fi
           for pkg in "${shims[@]}"; do
             # Provenance attests via the job's id-token on both auth paths — token bootstrap or OIDC.
-            npm publish --provenance --access public "${pkg}"
+            npm publish --provenance --access public "./${pkg}"
           done
 
   security:
