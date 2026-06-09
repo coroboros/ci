@@ -233,7 +233,9 @@ jobs:
       # Final asset URLs are deterministic (repo + tag), so --tag alone embeds non-draft links — no dist-owned release.
       - name: Build global artifacts
         shell: bash
-        run: dist build --tag="${GITHUB_REF_NAME}" --artifacts=global --output-format=json > target/distrib/dist-manifest.json
+        run: |
+          cp target/distrib/plan-dist-manifest.json target/distrib/dist-manifest.json
+          dist build --tag="${GITHUB_REF_NAME}" --artifacts=global --output-format=json > "${RUNNER_TEMP}/dist-manifest.json"
 
       # Undraft before the formula/npm job so they resolve against a live release, not a draft.
       - name: Upload release assets and undraft

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.3 - 09/06/2026
+
+### Fixes
+- `rust-packages` — `dist-host` seeds `target/distrib/dist-manifest.json` from the plan manifest and redirects the global build's own manifest to `$RUNNER_TEMP`. `dist build --artifacts=global` reads `dist-manifest.json` to assemble the installers, Homebrew formula, and npm shim; the previous `> target/distrib/dist-manifest.json` truncated that file before dist read it (`EOF while parsing JSON`), so the first native-CLI binary release never produced the formula or shim.
+
 ## v0.2.2 - 08/06/2026
 
 ### Configuration
