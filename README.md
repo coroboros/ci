@@ -223,8 +223,8 @@ Calls the advisory [`security.yml`](#securityyml). Reports, never blocks.
 
 The blocking gate, split from the advisory layer so it can be owned as a black box. Two parallel jobs, both fail the release through the caller's `needs:` graph — a dev can't bypass them:
 
-- **`supply-chain`** — auto-routed by ecosystem: a `Cargo.toml` repo runs [`security/rust/cargo-deny`](#composable-actions) (advisories + bans + sources); any other runs [`security/osv-scanner`](#composable-actions). One tool per repo, never both, so a crate isn't vuln-scanned twice. A repo with no supported manifest skips (osv's no-manifest path).
-- **`secret-scan`** — [`security/gitleaks`](#composable-actions), full git history, canonical ruleset.
+- **`scan-supply-chain`** — auto-routed by ecosystem: a `Cargo.toml` repo runs [`security/rust/cargo-deny`](#composable-actions) (advisories + bans + sources); any other runs [`security/osv-scanner`](#composable-actions). One tool per repo, never both, so a crate isn't vuln-scanned twice. A repo with no supported manifest skips (osv's no-manifest path).
+- **`scan-secrets`** — [`security/gitleaks`](#composable-actions), full git history, canonical ruleset.
 
 Imposed on every package pipeline (a `security-gate` job `needs:`-ed by `publish-package`) and importable directly by a non-package repo. Holds only what *blocks*: a compromised dependency or a leaked secret. License and quality policy live in `security.yml`.
 
@@ -232,8 +232,8 @@ Imposed on every package pipeline (a `security-gate` job `needs:`-ed by `publish
 
 The advisory layer — reports, never blocks (parity with GitLab's `allow_failure: true`):
 
-- **`dependency-review`** — PR-only; needs repo's **Dependency graph** enabled. Fails on high-severity CVE introduced by the dep diff. Uses `actions/dependency-review-action@v4`.
-- **`licenses`** — Rust-only (`continue-on-error`): [`security/rust/cargo-deny`](#composable-actions) `checks: licenses` against the canonical allow-list. A non-allowed license is surfaced, never blocks the release. Skips a repo with no `Cargo.toml`.
+- **`review-dependencies`** — PR-only; needs repo's **Dependency graph** enabled. Fails on high-severity CVE introduced by the dep diff. Uses `actions/dependency-review-action@v4`.
+- **`check-licenses`** — Rust-only (`continue-on-error`): [`security/rust/cargo-deny`](#composable-actions) `checks: licenses` against the canonical allow-list. A non-allowed license is surfaced, never blocks the release. Skips a repo with no `Cargo.toml`.
 
 ---
 
@@ -248,9 +248,9 @@ The advisory layer — reports, never blocks (parity with GitLab's `allow_failur
 | `rust/test-deps` | Rust | Loads the optional `ci/test.env` into the job env and runs the optional `ci/test-setup.sh` fixture hook before `cargo test`. Used by `rust/base`. No-op when absent. |
 | `rust/install-dist` | Rust | Installs cargo-dist's `dist` binary, prebuilt and SHA-256 verified (Linux/macOS/Windows). Shared by the `dist-plan`, `dist-build`, `dist-host` jobs. |
 | `rust/pin-version` | Rust | Installs version-pinned `cargo-set-version` (cargo-edit) and stamps `Cargo.toml` to the release tag. Shared by `publish-package` and the `dist-*` jobs. |
-| `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. Behind `security-gate.yml`'s `secret-scan` and self-CI. |
-| `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Behind `security-gate.yml`'s `supply-chain` (non-Rust) and self-CI. |
-| `security/rust/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The `checks` input selects which checks run — `advisories bans sources` for the `security-gate.yml` supply-chain, `licenses` for the `security.yml` advisory layer. |
+| `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. Behind `security-gate.yml`'s `scan-secrets` and self-CI. |
+| `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Behind `security-gate.yml`'s `scan-supply-chain` (non-Rust) and self-CI. |
+| `security/rust/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The `checks` input selects which checks run — `advisories bans sources` for the `security-gate.yml` `scan-supply-chain`, `licenses` for the `security.yml` advisory layer. |
 | `release/verify-tag` | transverse | Fails the release unless the checked-out `main` HEAD matches the tag SHA. Shared by the npm and Rust `publish-package` jobs — the tag-time jobs that check out `main` to push back; the `dist-*` jobs pin to the tag commit (`github.sha`) instead. |
 | `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. Fails the release when the newest section's version was never tagged and ≠ the release tag — a hand-curated section whose version wasn't bumped. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog`. |
@@ -305,8 +305,8 @@ Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-cu
 
 `coroboros/ci` runs a CI on itself — lint, security, and the `v0` release move — plus a test layer that exercises its own composite actions, which are the product:
 
-- **Lint** (`self-lint.yml`) — `actionlint`, `yamllint`, `shellcheck`.
-- **Security** (`self-security.yml`) — the `gitleaks` / `osv-scanner` composites and the `security-gate` / `security` workflows, via local `./` refs.
+- **Lint** (`self-lint.yml`) — `check-actions` (actionlint), `check-yaml` (yamllint), `check-shell` (shellcheck).
+- **Security** (`self-security.yml`) — `scan-secrets` / `scan-deps` (the `gitleaks` / `osv-scanner` composites) and the `security-gate` / `security` workflows, via local `./` refs.
 - **Release** (`self-release.yml`) — moves the rolling `v0` tag onto each stable release.
 - **Test** (`self-test.yml`) — smoke every composite (`release/*`, `rust/*`, `security/*`) against the real checkout, and run `javascript/base` + `rust/base` end-to-end on a `test/fixtures/` package and crate.
 
