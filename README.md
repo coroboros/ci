@@ -232,8 +232,8 @@ Imposed on every package pipeline (a `security-gate` job `needs:`-ed by `publish
 
 The advisory layer — reports, never blocks (parity with GitLab's `allow_failure: true`):
 
-- **`review-dependencies`** — PR-only; needs repo's **Dependency graph** enabled. Fails on high-severity CVE introduced by the dep diff. Uses `actions/dependency-review-action@v4`.
-- **`check-licenses`** — Rust-only (`continue-on-error`): [`security/rust/cargo-deny`](#composable-actions) `checks: licenses` against the canonical allow-list. A non-allowed license is surfaced, never blocks the release. Skips a repo with no `Cargo.toml`.
+- **`review-dependencies`** — PR-only; needs the repo's **Dependency graph** enabled. Surfaces high-severity CVEs introduced by the dep diff. Uses `actions/dependency-review-action@v4`.
+- **`check-licenses`** — Rust-only: [`security/rust/cargo-deny`](#composable-actions) `checks: licenses` against the canonical allow-list. A non-allowed license is surfaced, never blocks the release. Skips a repo with no `Cargo.toml`.
 
 ---
 
