@@ -36,6 +36,15 @@ runs:
           echo "::notice::Using existing CHANGELOG section for ${tag}"
           body="${existing}"
         else
+          # Refuse rather than bury a hand-curated section under an auto-generated one-liner and
+          # commit that back. The tag-resolves gate spares a tagless shallow checkout a false alarm.
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
+            newest="$(grep -m1 -oE '^## v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)*' CHANGELOG.md 2>/dev/null | sed -E 's/^## v?//')"
+            if [ -n "${newest}" ] && [ "${newest}" != "${tag}" ] && ! git rev-parse -q --verify "refs/tags/${newest}" >/dev/null 2>&1; then
+              echo "::error::CHANGELOG.md's newest section is '## v${newest}', but you are releasing '${tag}' and '${newest}' was never tagged. A hand-curated section's version was likely not bumped to the release tag. Rename it to '## v${tag}' (or delete it to auto-generate from commits), then re-tag."
+              exit 1
+            fi
+          fi
           echo "::notice::Auto-generating CHANGELOG section for ${tag}"
           prev_tag="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
           commits_range="${prev_tag:+${prev_tag}..}HEAD"

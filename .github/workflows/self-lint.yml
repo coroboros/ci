@@ -15,7 +15,7 @@ env:
   YAMLLINT_VERSION: "1.38.0"
 
 jobs:
-  actionlint:
+  check-actions:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: actionlint -color
 
-  yamllint:
+  check-yaml:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: yamllint -f colored .
 
-  shellcheck:
+  check-shell:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3

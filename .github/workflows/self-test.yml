@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  verify-tag:
+  test-verify-tag:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -39,7 +39,7 @@ jobs:
           [ "${{ steps.moved.outcome }}" = "failure" ] || { echo "::error::verify-tag must fail when HEAD != GITHUB_SHA"; exit 1; }
           echo "::notice::verify-tag passes on match, fails on divergence"
 
-  generate-changelog:
+  test-generate-changelog:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -54,7 +54,7 @@ jobs:
           [ "${{ steps.gate.outcome }}" = "failure" ] || { echo "::error::SemVer gate must reject the non-SemVer ref '${GITHUB_REF_NAME}'"; exit 1; }
           echo "::notice::generate-changelog SemVer gate rejects non-tag refs"
 
-  commit-artifacts:
+  test-commit-artifacts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -102,7 +102,7 @@ jobs:
             || { echo "::error::no-op branch pushed unexpectedly"; exit 1; }
           echo "::notice::commit-artifacts no-op left main untouched"
 
-  cargo-deny-guard:
+  test-cargo-deny:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -122,7 +122,7 @@ jobs:
           [ "${{ steps.reject.outcome }}" = "failure" ] || { echo "::error::cargo-deny must reject a consumer deny.exceptions.toml"; exit 1; }
           echo "::notice::cargo-deny rejects consumer deny.exceptions.toml"
 
-  install-dist:
+  test-install-dist:
     # cargo-dist packages the Windows zip flat (dist.exe at root) but the Linux/macOS
     # tarballs nested — extraction differs per OS, so the smoke covers all three.
     strategy:
@@ -140,7 +140,7 @@ jobs:
           dist --version || { echo "::error::dist not on PATH after install-dist"; exit 1; }
           echo "::notice::install-dist OK — $(dist --version)"
 
-  native-deps-target:
+  test-native-deps:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -174,7 +174,7 @@ jobs:
           [ "${got}" = "aarch64-unknown-linux-gnu" ] || { echo "::error::ci/setup.sh saw '${got}', expected the exported target"; exit 1; }
           echo "::notice::native-deps passes CARGO_DIST_TARGET through to ci/setup.sh"
 
-  test-deps:
+  test-test-deps:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -200,7 +200,7 @@ jobs:
           [ "${FOO:-}" = "1" ] || { echo "::error::ci/test.env did not propagate FOO to the job env"; exit 1; }
           echo "::notice::test-deps runs test-setup.sh and propagates test.env"
 
-  javascript-base:
+  test-javascript-base:
     runs-on: ubuntu-latest
     env:
       NPM_CONFIG_FILE: "registry=https://registry.npmjs.org/"
@@ -221,7 +221,7 @@ jobs:
           done
           echo "::notice::javascript/base ran install (sfw + frozen lockfile), lint, build, test on the fixture"
 
-  rust-base:
+  test-rust-base:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3

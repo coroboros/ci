@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  rolling-tag:
+  move-rolling-tag:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # force-push the rolling major tag
