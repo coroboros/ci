@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.5 - 09/06/2026
+
+### Refactor
+- `javascript-npm-packages` / `rust-packages` — align job ids to GitLab CI's `verb-noun` naming: `publish` → `publish-package` in both pipelines, and the Rust `package` job → `verify-package` (it verify-builds the crate rather than producing an artifact). Reusable-workflow job ids only — filenames, inputs, secrets, and composite-action paths are untouched, so consumer `@v0` references are unaffected.
+
 ## v0.2.4 - 09/06/2026
 
 ### Fixes
