@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.6 - 09/06/2026
+
+### Fixes
+- `generate-changelog` — fail loud when the newest `CHANGELOG.md` section's version was never tagged and ≠ the release tag, instead of auto-generating a degraded one-liner over a mis-bumped hand-curated section and committing it back. Gated on the release tag resolving locally, so a shallow checkout can't false-positive.
+
 ## v0.2.5 - 09/06/2026
 
 ### Refactor

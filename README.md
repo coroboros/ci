@@ -252,7 +252,7 @@ The advisory layer — reports, never blocks (parity with GitLab's `allow_failur
 | `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Behind `security-gate.yml`'s `supply-chain` (non-Rust) and self-CI. |
 | `security/rust/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The `checks` input selects which checks run — `advisories bans sources` for the `security-gate.yml` supply-chain, `licenses` for the `security.yml` advisory layer. |
 | `release/verify-tag` | transverse | Fails the release unless the checked-out `main` HEAD matches the tag SHA. Shared by the npm and Rust `publish-package` jobs — the tag-time jobs that check out `main` to push back; the `dist-*` jobs pin to the tag commit (`github.sha`) instead. |
-| `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. |
+| `release/generate-changelog` | transverse | SemVer-strict tag guard + generates or reuses the `## vX.Y.Z` section in `CHANGELOG.md` from Conventional Commits. Outputs `body`. Idempotent. Fails the release when the newest section's version was never tagged and ≠ the release tag — a hand-curated section whose version wasn't bumped. |
 | `release/github-release` | transverse | Creates the GitHub Release for the current tag, optionally as a `draft`. Body typically chained from `release/generate-changelog`. |
 | `release/commit-artifacts` | transverse | Stages the given files and commits them back to `main` as `chore: release ${tag} [skip ci]`. No-op when nothing changed. |
 
@@ -295,7 +295,7 @@ Nobody pushes directly to protected branches (`main`, `develop`, `release/x.y.z`
 | Other / non-standard | Others |
 | `!:` or `BREAKING CHANGE:` | Breaking Changes (always first) |
 
-Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-curated section for the tag if present.
+Section format: `## vX.Y.Z - DD/MM/YYYY`. Idempotent. Reuses an existing hand-curated section for the tag if present. Fails loud on a mis-bumped section — newest `## vX.Y.Z` untagged and ≠ the release tag — instead of auto-generating over it.
 
 </details>
 
