@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.7 - 09/06/2026
+
+### Fixes
+- `security` — `review-dependencies` no longer blocks the release: the advisory layer's never-blocks contract now covers it, not only `check-licenses`. A high-severity CVE, or a repo without Dependency graph enabled, reports instead of failing the check.
+
 ## v0.2.6 - 09/06/2026
 
 ### Fixes
