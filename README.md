@@ -201,10 +201,11 @@ Verify-builds the packaged crate, so a compile-time asset dropped from the packa
 
 1. `dist-plan` — per-target build matrix
 2. `dist-build` — per-target archives
-3. `dist-host` — installers, Homebrew formula, npm shim; uploads assets, undrafts the release
-4. `dist-publish` — tap + npm shim
+3. `dist-host` — installers, hardened Homebrew formula, npm shim; uploads assets, undrafts the release
+4. `verify-homebrew-formula` — `brew audit --strict --online` + `brew fetch`
+5. `dist-publish` — tap + npm shim
 
-The pipeline owns the single release; cargo-dist only builds. Consumer config — the cargo-dist metadata, with `allow-dirty = ["ci"]` in `[workspace.metadata.dist]`. Per-target features via `cfg`; shared binaries are CPU-only. `HOMEBREW_TAP_TOKEN` / `NPM_PACKAGE_REGISTRY_TOKEN` optional.
+The pipeline owns the single release; cargo-dist only builds. Consumer config — the cargo-dist metadata, with `allow-dirty = ["ci"]` in `[workspace.metadata.dist]`. Per-target features via `cfg`; shared binaries are CPU-only. `HOMEBREW_TAP_TOKEN` / `NPM_PACKAGE_REGISTRY_TOKEN` optional. Homebrew formulae are post-processed before release upload and tap publish so the release asset, tap commit, and audit target stay byte-aligned.
 
 </details>
 
