@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.8 - 20/06/2026
+
+### Fixes
+- `rust-packages` — harden cargo-dist Homebrew formulae before release upload and tap publish: add per-platform SHA-256 checksums from the generated `.sha256` files, drop the redundant explicit version, shorten Homebrew `desc`, simplify the binary install block, freeze aliases, and add a `test do` block. A new macOS `verify-homebrew-formula` job runs `brew audit --strict --online` and `brew fetch` before `dist-publish`, so a non-auditable formula cannot reach the tap.
+
 ## v0.2.7 - 09/06/2026
 
 ### Fixes
