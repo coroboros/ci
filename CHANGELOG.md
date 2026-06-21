@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.9 - 21/06/2026
+
+### Fixes
+- `rust-packages` — run Homebrew formula hardening from a versioned `rust/harden-homebrew-formula` composite instead of a `.github/scripts/...` path in the consumer checkout. Binary release repos now resolve the script through `coroboros/ci@v0` and no longer fail `dist-host` after the crate publish has succeeded.
+
 ## v0.2.8 - 20/06/2026
 
 ### Fixes

@@ -237,9 +237,9 @@ jobs:
           cp target/distrib/plan-dist-manifest.json target/distrib/dist-manifest.json
           dist build --tag="${GITHUB_REF_NAME}" --artifacts=global --output-format=json > "${RUNNER_TEMP}/dist-manifest.json"
 
-      - name: Harden Homebrew formula
-        shell: bash
-        run: python3 .github/scripts/harden-homebrew-formula.py target/distrib
+      - uses: coroboros/ci/.github/actions/rust/harden-homebrew-formula@v0
+        with:
+          dist-dir: target/distrib
 
       # Undraft before the formula/npm job so they resolve against a live release, not a draft.
       - name: Upload release assets and undraft

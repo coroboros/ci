@@ -1,0 +1,17 @@
+# Rust Harden Homebrew Formula Action Composite
+name: rust-harden-homebrew-formula
+description: Harden cargo-dist Homebrew formulae generated in a distribution directory.
+
+inputs:
+  dist-dir:
+    description: Directory containing cargo-dist global artifacts.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Harden Homebrew formula
+      shell: bash
+      env:
+        DIST_DIR: ${{ inputs.dist-dir }}
+      run: python3 "${GITHUB_ACTION_PATH}/harden-homebrew-formula.py" "${DIST_DIR}"

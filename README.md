@@ -249,6 +249,7 @@ The advisory layer — reports, never blocks (parity with GitLab's `allow_failur
 | `rust/test-deps` | Rust | Loads the optional `ci/test.env` into the job env and runs the optional `ci/test-setup.sh` fixture hook before `cargo test`. Used by `rust/base`. No-op when absent. |
 | `rust/install-dist` | Rust | Installs cargo-dist's `dist` binary, prebuilt and SHA-256 verified (Linux/macOS/Windows). Shared by the `dist-plan`, `dist-build`, `dist-host` jobs. |
 | `rust/pin-version` | Rust | Installs version-pinned `cargo-set-version` (cargo-edit) and stamps `Cargo.toml` to the release tag. Shared by `publish-package` and the `dist-*` jobs. |
+| `rust/harden-homebrew-formula` | Rust | Hardens cargo-dist Homebrew formulae before release upload and tap publish. Shared by `rust-packages.yml`'s `dist-host` job. |
 | `security/gitleaks` | transverse | Installs gitleaks (SHA-256 verified), scans with the canonical ruleset, emits SARIF. Behind `security-gate.yml`'s `scan-secrets` and self-CI. |
 | `security/osv-scanner` | transverse | Scans dependency manifests for known vulnerabilities (OSV.dev); skips a repo with no supported manifest. Behind `security-gate.yml`'s `scan-supply-chain` (non-Rust) and self-CI. |
 | `security/rust/cargo-deny` | Rust | Runs cargo-deny against the canonical imposed `security/deny.toml` (sparse-checked from `coroboros/ci`, no consumer override). The `checks` input selects which checks run — `advisories bans sources` for the `security-gate.yml` `scan-supply-chain`, `licenses` for the `security.yml` advisory layer. |
