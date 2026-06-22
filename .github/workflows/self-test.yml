@@ -19,7 +19,7 @@ jobs:
   test-verify-tag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Pass — HEAD matches the run SHA
         uses: ./.github/actions/release/verify-tag
       - name: Move HEAD so it diverges from the run SHA
@@ -42,7 +42,7 @@ jobs:
   test-generate-changelog:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: SemVer gate rejects a non-tag ref
         id: gate
         continue-on-error: true
@@ -57,7 +57,7 @@ jobs:
   test-commit-artifacts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           path: _src
       - name: Build a fixture repo + local bare remote
@@ -105,7 +105,7 @@ jobs:
   test-cargo-deny:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Plant a forbidden consumer override
         shell: bash
         run: |
@@ -131,7 +131,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - uses: ./.github/actions/rust/install-dist
       - name: Assert dist is installed and runnable
         shell: bash
@@ -143,7 +143,7 @@ jobs:
   test-native-deps:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Plant a fixture ci/setup.sh that records CARGO_DIST_TARGET
         shell: bash
         run: |
@@ -177,7 +177,7 @@ jobs:
   test-test-deps:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Absent hooks → no-op
         uses: ./.github/actions/rust/test-deps
       - name: Plant ci/test.env and ci/test-setup.sh
@@ -205,7 +205,7 @@ jobs:
     env:
       NPM_CONFIG_FILE: "registry=https://registry.npmjs.org/"
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           path: _src
       - name: Stage the npm fixture at the workspace root
@@ -224,7 +224,7 @@ jobs:
   test-rust-base:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           path: _src
       - name: Stage the rust fixture at the workspace root
