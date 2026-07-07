@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.10 - 08/07/2026
+
+### Fixes
+- `rust-packages` — pin the `preflight` macOS runner to `macos-14`. `macos-latest` rolled to an Xcode whose clang runtime path breaks the compiler-rt link (`ld: library 'clang_rt.osx' not found`), flaking every consumer's macOS preflight. `macos-14` matches the runner the `dist-build` aarch64 leg already uses.
+
 ## v0.2.9 - 21/06/2026
 
 ### Fixes
