@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.11 - 05/09/2026
+
+### Fixes
+- Update pinned GitHub Actions dependencies across reusable workflows and self-CI.
+- Share concise project constraints and release ownership through `AGENTS.md`, imported by `CLAUDE.md`.
+
 ## v0.2.10 - 08/07/2026
 
 ### Fixes
