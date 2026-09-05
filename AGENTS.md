@@ -4,7 +4,7 @@ Reusable GitHub Actions workflows + composite actions for the Coroboros stack.
 
 ## Commands
 
-- `actionlint -shellcheck=shellcheck` — workflows, `action.yml`, inline shell.
+- `actionlint -shellcheck=shellcheck` — workflows and their inline shell.
 - `yamllint -c .yamllint .` — YAML lint.
 
 ## Important files
