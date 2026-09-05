@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.11 - 05/09/2026
+
+### Fixes
+- Use `AGENTS.md` as the shared repository instruction source, imported by `CLAUDE.md`.
+
 ## v0.2.10 - 08/07/2026
 
 ### Fixes
