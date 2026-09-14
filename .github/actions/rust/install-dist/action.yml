@@ -8,13 +8,13 @@ runs:
     - name: Install dist
       shell: bash
       env:
-        CARGO_DIST_VERSION: "0.32.0"
+        CARGO_DIST_VERSION: "0.33.0"
         # https://github.com/axodotdev/cargo-dist/releases/download/v0.32.0/sha256.sum
-        SHA256_X86_64_LINUX: "eb52f9fae0d0506774e9f1801c1168f87fa2c87a45e2d64d3ae7c89401929946"
-        SHA256_AARCH64_LINUX: "d29bcffeb3f8b0c517b4ce0dd2470926ed5cb0bb29d78c6bdd5f88d76ee14a6a"
-        SHA256_X86_64_DARWIN: "6243464a8389e006b9256ee548bc795638f1a17113c1b6669c0e05ce89fd05c5"
-        SHA256_AARCH64_DARWIN: "aa343b2ff78ec2981f17a65140250c5ad6062c74072163f68c5c2686d94763a7"
-        SHA256_X86_64_WINDOWS: "26e845cabff12a92911ce960af73a86c8f9b2b2d9072b01dfe5b662acf044fa3"
+        SHA256_X86_64_LINUX: "4b3f0a5f0ebbdb798f6db649d01b32ba1518376b6f7a0502b7d92b75cc2c8293"
+        SHA256_AARCH64_LINUX: "9c554ab21a58ad46eb9b6710f89633ccb26bc2577cf4b0c2d18a5b826a31913e"
+        SHA256_X86_64_DARWIN: "6a49bfb61bd86770d79c27f3d2b40c6b2e71cde940d3d31a6ccaaffc124d7a29"
+        SHA256_AARCH64_DARWIN: "7b3cbe25511de01d74c0f5fcb7909edabd379bea9cfa284d93af5a3cdfa3247c"
+        SHA256_X86_64_WINDOWS: "9a36d70795e14326a5ec4bf17aee085df00ab85a322739291ea5d4b1b5f693cd"
       run: |
         set -euo pipefail
         case "$(uname -s)-$(uname -m)" in
