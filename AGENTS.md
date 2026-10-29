@@ -21,5 +21,4 @@ Reusable GitHub Actions workflows and composite actions for the Coroboros stack.
 ## Release
 
 - PR-only into `main`, then squash merge. Manually bump `package.json:version` and prepend the matching `CHANGELOG.md` entry before merge.
-- After authorization, create an annotated SemVer tag without a `v` prefix on the reviewed merge commit, then a GitHub release using that version as its title and the changelog entry as notes.
 - `self-release.yml` owns the rolling `v0` update. It does not bump manifests or create the GitHub release; do not move `v0` manually.
